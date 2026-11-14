@@ -49,6 +49,9 @@
   --seg-on: #2e3440;
   --seg-on-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
   --dialog: #191d24;
+  --card: #1c212a;
+  --tab-off: #151920;
+  --inset: #12151a;
   color-scheme: dark;
 }
 /* Light theme, picked in Settings, or "System" when the device is in light mode. */
@@ -79,6 +82,9 @@
   --seg-on: #ffffff;
   --seg-on-shadow: 0 1px 3px rgba(15, 23, 42, 0.16);
   --dialog: #ffffff;
+  --card: #ffffff;
+  --tab-off: #dce2e9;
+  --inset: #f1f4f7;
   color-scheme: light;
 }
 @media (prefers-color-scheme: light) {
@@ -109,6 +115,9 @@
     --seg-on: #ffffff;
     --seg-on-shadow: 0 1px 3px rgba(15, 23, 42, 0.16);
     --dialog: #ffffff;
+    --card: #ffffff;
+    --tab-off: #dce2e9;
+    --inset: #f1f4f7;
     color-scheme: light;
   }
 }
@@ -303,16 +312,16 @@ body.has-video .wordmark { color: var(--text-2); }
   font: 700 1.3rem/1 var(--display); letter-spacing: 0.06em; text-transform: uppercase;
   transition: color 0.15s, background 0.15s;
 }
-.tab { color: var(--text-2); background: color-mix(in srgb, var(--s1) 35%, transparent); }
-.tab:hover { color: var(--text); background: color-mix(in srgb, var(--s1) 65%, transparent); }
-.tab.active { background: var(--s1); color: var(--text); border-color: var(--line-2); }
+.tab { color: var(--text-2); background: var(--tab-off); border-color: var(--line); }
+.tab:hover { color: var(--text); background: color-mix(in srgb, var(--card) 55%, var(--tab-off)); }
+.tab.active { background: var(--card); color: var(--text); border-color: var(--line-2); }
 .tab.active::before {
   content: ""; position: absolute; left: 16px; right: 16px; top: -1px; height: 3px;
   border-radius: 0 0 3px 3px; background: var(--accent);
 }
 .tab-body {
   display: grid; gap: 12px; min-width: 0; align-content: start;
-  padding: 16px 14px; background: var(--s1);
+  padding: 16px 14px; background: var(--card);
   border: 1px solid var(--line-2); border-top: 0; border-radius: 0 0 var(--r-lg) var(--r-lg);
 }
 
@@ -417,7 +426,7 @@ body.has-video .wordmark { color: var(--text-2); }
 .scrub-cap { position: relative; height: 16px; margin-top: -6px; }
 .scrub-cap span { position: absolute; transform: translateX(-50%); color: var(--text-3); font-size: 0.75rem; white-space: nowrap; }
 
-.edges { display: grid; gap: 10px; padding: 10px; background: var(--s2); border-radius: var(--r-lg); }
+.edges { display: grid; gap: 10px; padding: 10px; background: var(--inset); border-radius: var(--r-lg); }
 .edge-pick button, .edge-on { display: grid; gap: 1px; justify-items: center; align-content: center; min-height: 64px; padding: 6px; border-radius: 9px; }
 .edge-on { background: var(--seg-on); color: var(--text); box-shadow: var(--seg-on-shadow), inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); cursor: text; }
 .edge-pick .label { font-size: 0.8rem; color: inherit; opacity: 0.75; }
@@ -441,7 +450,7 @@ body.has-video .wordmark { color: var(--text-2); }
 .cat {
   --c: var(--none);
   display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--tap); padding: 0 10px;
-  background: var(--s2); border: 1px solid var(--line); border-radius: 999px;
+  background: var(--inset); border: 1px solid var(--line); border-radius: 999px;
   color: var(--text-2); font-weight: 600; font-size: 0.92rem;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
@@ -562,8 +571,7 @@ body.has-video .wordmark { color: var(--text-2); }
 
 /* Tablet in portrait: wide clip buttons, editor in two columns */
 @media (min-width: 720px) and (max-width: 1023px) {
-  .clip-buttons { grid-template-columns: 2fr 1fr 1fr; }
-  .clip-main { grid-column: auto; min-height: 116px; }
+  .clip-main { min-height: 132px; }
   .clip-tag { min-height: 116px; font-size: 1.7rem; }
   .editor { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; }
 }

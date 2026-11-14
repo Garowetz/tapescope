@@ -19,15 +19,12 @@ The **Review** tab is where you watch the game and mark moments.
 2. Name the game in the box at the top (for example "vs Guelph - Nov 15").
 3. Optional: open the **menu** (the three dots) and choose **Load roster** to
    pick your team file (see below).
-4. Play the game. Right after something happens, good or bad, press:
-   - **Clip it** (key **C**) to save the moment with no tag
-   - **Good** (key **G**)
-   - **Fix** (key **F**)
+4. Play the game. Right after something happens, good or bad, press **Clip it**
+   (key **C**).
 
 Each press saves a clip from 30 seconds before to 10 seconds after that moment.
-Don't worry about exact timing; you fix that in the next step. **Undo** removes
-the last clip. Pressing Good or Fix straight after Clip it tags that clip rather
-than making a second one. **Settings** in the menu changes the before/after
+Don't worry about exact timing or tagging; you do that on the Clips tab.
+**Undo** removes the last clip. **Settings** in the menu changes the before/after
 window for new clips.
 
 Other keys: **Space** plays and pauses, **Left / Right arrows** jump 5 seconds.

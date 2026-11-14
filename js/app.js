@@ -24,7 +24,6 @@ const clamp01 = (n) => Math.max(0, Math.min(1, n));
 
 const SETTINGS_KEY = 'tapescope.settings';
 const DOUBLE_TAP_MS = 1500;  // a second identical press this soon is ignored
-const RETAG_MS = 5000;       // Good/Fix this soon after a clip re-tags it instead
 const AWAY_SECONDS = 5;      // how far the video must have moved to offer "back to where I was"
 
 const state = {
@@ -227,15 +226,6 @@ function addClip(category) {
   if (lastClip) {
     // A double tap is one clip, not two.
     if (now - last.at < DOUBLE_TAP_MS && last.category === category) return;
-    // "Clip it" then "Good" straight after tags that clip rather than making another.
-    if (category && now - last.at < RETAG_MS && Math.abs(time - last.time) < AWAY_SECONDS) {
-      lastClip.category = category;
-      state.lastAdd = { ...last, at: now, category };
-      changed();
-      renderAll();
-      flash(category);
-      return;
-    }
   }
   const clip = createClip(time, state.settings, player.getDuration(), category);
   clips().push(clip);
@@ -974,8 +964,6 @@ document.addEventListener('keydown', (e) => {
   const key = e.key.toLowerCase();
   if (state.tab === 'clip' && !e.repeat) {
     if (key === 'c') return addClip('');
-    if (key === 'g') return addClip('good');
-    if (key === 'f') return addClip('needs-work');
   }
   if (state.tab === 'trim' && !e.repeat && selected()) {
     if (key === 'n') return step(1);
