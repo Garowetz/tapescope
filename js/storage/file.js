@@ -2,7 +2,7 @@
 // The game file is the reliable copy. It includes the roster with names, so it
 // belongs in the coaches' shared folder, never in this repo.
 
-import { normalizeGame } from '../game.js';
+import { normalizeGame } from '../game.js?v=7';
 
 function slug(title) {
   const s = String(title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');

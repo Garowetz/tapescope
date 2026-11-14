@@ -17,8 +17,8 @@ The **Review** tab is where you watch the game and mark moments.
 
 1. Paste the game's YouTube link and press **Start clipping**.
 2. Name the game in the box at the top (for example "vs Guelph - Nov 15").
-3. Optional: open the **menu** (the three dots) and choose **Load roster** to
-   pick your team file (see below).
+3. Optional: open the **menu** (the three dots) and choose **Team roster** to
+   type in your players or import your team file (see below).
 4. Play the game. Right after something happens, good or bad, press **Clip it**
    (key **C**).
 
@@ -93,23 +93,45 @@ your device; Dark is the default) and the clip length for new clips.
   when sending to coaches. Very long links can get cut off by some texting and
   email apps; if a link won't open, send the game file instead.
 
-## The team file (roster)
+## The team roster
 
-A small spreadsheet saved as CSV, edited in Google Sheets or Excel:
+Open the **menu** and choose **Team roster**. The page has spots for a full team:
+2 goalies, 3 defence pairs (LD, RD) and 3 forward lines (LW, C, RW), plus
+**Extra players** for spares and call-ups. Type a jersey number and name in each
+spot you have; leave the rest empty.
+
+- It saves as you type, in this browser, and every new game starts with it.
+- **Export** downloads it as `team-roster.csv`. **Import** loads a file back, on
+  any device or browser.
+- A player needs a jersey number to be tagged on clips. The page warns you about a
+  missing or repeated number.
+
+The file is a plain spreadsheet you can also edit in Google Sheets or Excel:
 
 ```text
 number,name,position
-7,Sam,F
-12,Alex,D
+30,Sam,G
+4,Alex,LD
+9,Jordan,C
 ```
 
-Load it when you start a game and its roster is copied into that game. If the
-lineup changes, press **Update roster** and pick the file again. Without a roster
-you can still add players to a clip by jersey number.
+Positions are G, LD, RD, LW, C, RW. D and F also work for "either side"; those
+players go in the first free defence or forward spot.
+
+## What's saved, and where
+
+Everything is kept in this browser on this device (its local storage, not
+cookies): the game you're working on, the team roster, and your settings. Close
+the tab and come back, and it's all there.
+
+A different browser, a different device, or a private window starts empty. To
+move your work, use **Save game file** and **Export** on the roster page, then
+open them on the other device. Safari may also clear a site's stored data if you
+don't visit it for about a week, so keep the files as your real copy.
 
 ## Privacy
 
-- Game files and team files contain kids' names. Keep them in a folder only the
+- Game files and roster files contain kids' names. Keep them in a folder only the
   coaches can open. Never post them publicly.
 - Anyone who gets a share link can read the clip titles and talking points, so
   keep them coach-appropriate.
@@ -137,7 +159,8 @@ python -m http.server 8123
 | --- | --- |
 | `js/clips.js` | Every clip-timing rule: default window, clamping, trimming, time text |
 | `js/game.js` | The game object and `schemaVersion` upgrades |
-| `js/roster.js` | Team file parsing (CSV or JSON) |
+| `js/roster.js` | Roster layout (lineup spots), file parsing and export |
+| `js/team.js` | The team roster page |
 | `js/players/youtube.js` | YouTube player adapter. A local-file adapter exposes the same methods |
 | `js/storage/local.js`, `file.js`, `link.js` | Storage adapters: autosave, game file, share link |
 | `js/app.js` | UI wiring and settings |

@@ -3,7 +3,7 @@
 // The roster is left out unless includeNames is on, so a forwarded link carries
 // jersey numbers only.
 
-import { normalizeGame } from '../game.js';
+import { normalizeGame } from '../game.js?v=7';
 
 const PREFIX = '#g=';
 export const LONG_LINK = 2000; // past this, some texting and email apps cut links off

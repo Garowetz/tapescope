@@ -5,14 +5,15 @@ import {
   BEFORE_OPTIONS, AFTER_OPTIONS, NUDGE_STEPS, CATEGORIES, END_PREVIEW,
   normalizeSettings, createClip, resetWindow, setStart, setEnd,
   formatTime, parseTime, categoryLabel,
-} from './clips.js';
-import { newGame } from './game.js';
-import { parseRosterText, playerLabel } from './roster.js';
-import { createYouTubePlayer, parseYouTubeUrl } from './players/youtube.js';
-import { localStore } from './storage/local.js';
-import { fileStore } from './storage/file.js';
-import { linkStore, LONG_LINK } from './storage/link.js';
-import { createPresenter } from './present.js';
+} from './clips.js?v=7';
+import { newGame } from './game.js?v=7';
+import { parseRosterText, playerLabel, loadTeam, saveTeam } from './roster.js?v=7';
+import { createRosterPage } from './team.js?v=7';
+import { createYouTubePlayer, parseYouTubeUrl } from './players/youtube.js?v=7';
+import { localStore } from './storage/local.js?v=7';
+import { fileStore } from './storage/file.js?v=7';
+import { linkStore, LONG_LINK } from './storage/link.js?v=7';
+import { createPresenter } from './present.js?v=7';
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => [...document.querySelectorAll(sel)];
@@ -57,6 +58,51 @@ const presenter = createPresenter({
   },
 });
 
+const rosterPage = createRosterPage({
+  getRoster: () => state.game.roster,
+  setRoster: (roster) => setRoster(roster),
+  toast: (msg) => toast(msg),
+  importFile: () => $('#file-roster').click(),
+  onClose: () => renderAll(),
+});
+
+// One roster for the team: it goes into the current game (so a saved game file
+// carries it) and is kept in this browser for the next game.
+function setRoster(roster) {
+  state.game.roster = roster;
+  saveTeam(roster);
+  changed();
+  renderChrome();
+  renderEditor();
+}
+
+// ---------- phone Back button ----------
+// Opening a pop-up, the roster page or presentation mode adds one history entry,
+// so the phone's Back button closes it instead of leaving the site.
+let backArmed = false;
+function armBack() {
+  if (backArmed) return;
+  history.pushState({ tapescope: 'open' }, '');
+  backArmed = true;
+}
+const nativeShowModal = HTMLDialogElement.prototype.showModal;
+HTMLDialogElement.prototype.showModal = function showModal() {
+  armBack();
+  return nativeShowModal.call(this);
+};
+window.addEventListener('popstate', () => {
+  backArmed = false;
+  const dialogs = $$('dialog[open]');
+  if (dialogs.length) {
+    dialogs[dialogs.length - 1].close();
+    if (presenter.isActive() || rosterPage.isOpen()) armBack();
+    return;
+  }
+  if (presenter.isActive()) { presenter.exit(); return; }
+  if (rosterPage.isOpen()) { rosterPage.close(); return; }
+  history.back(); // nothing open: Back means leave, as usual
+});
+
 // ---------- theme ----------
 
 const THEME_KEY = 'tapescope.theme';
@@ -68,7 +114,7 @@ const getTheme = () => (THEMES.includes(document.documentElement.dataset.theme) 
 function syncThemeColor() {
   const t = getTheme();
   const light = t === 'light' || (t === 'system' && lightQuery.matches);
-  $('meta[name="theme-color"]').content = light ? '#eef1f5' : '#0a0c0f';
+  $('meta[name="theme-color"]').content = light ? '#eef1f5' : '#15181e';
 }
 
 function setTheme(t) {
@@ -278,6 +324,13 @@ function deleteClip(id) {
 
 // ---------- tabs ----------
 
+const phonePortrait = matchMedia('(max-width: 719px) and (orientation: portrait)');
+function showEditorOnPhone() {
+  if (phonePortrait.matches && state.tab === 'trim') {
+    window.scrollTo({ top: $('.bar').offsetHeight, behavior: 'smooth' });
+  }
+}
+
 function setTab(tab, { cue = true } = {}) {
   if (tab === state.tab) return;
   if (state.tab === 'clip' && player.isReady() && player.getTime() > 1) state.watchAt = player.getTime();
@@ -294,6 +347,7 @@ function setTab(tab, { cue = true } = {}) {
     }
   }
   renderAll();
+  showEditorOnPhone();
 }
 
 // ---------- rendering ----------
@@ -319,10 +373,9 @@ function renderChrome() {
   if (document.activeElement !== $('#game-title')) $('#game-title').value = g.title;
   document.title = g.title ? `${g.title} · Tape Scope` : 'Tape Scope Review';
 
-  $('#roster-label').textContent = g.roster.length ? 'Update roster' : 'Load roster';
   $('#roster-status').textContent = g.roster.length
-    ? `${g.roster.length} players loaded`
-    : 'A team file with number, name, position';
+    ? `${g.roster.length} player${g.roster.length === 1 ? '' : 's'} · type names, import or export`
+    : 'Type in your players, or import a file';
   $('#window-status').textContent = `${THEME_NAMES[getTheme()]} theme · clips ${state.settings.before}s before, ${state.settings.after}s after`;
   $('#clip-window').textContent = `Saves ${windowText()}`;
 
@@ -421,7 +474,7 @@ function renderEditor() {
          <span class="label">${label}</span><b id="seg-${name}">${formatTime(clip[name])}</b>
        </button>`);
 
-  const available = g.roster.filter((p) => !clip.players.includes(p.number));
+  const available = g.roster.filter((p) => !clip.players.includes(p.number)).sort((a, b) => a.number - b.number);
   const addPlayer = g.roster.length
     ? `<select data-add-player aria-label="Add a player">
          <option value="">Add a player</option>
@@ -430,21 +483,19 @@ function renderEditor() {
     : `<form class="add-player" data-add-number>
          <input type="text" inputmode="numeric" placeholder="Jersey number" aria-label="Jersey number">
          <button class="btn">Add</button>
-       </form>`;
+       </form>
+       <button type="button" class="link" data-act="roster">Set up your team roster to pick players by name</button>`;
 
   box.innerHTML = `
     <div class="editor cat-${esc(clip.category)}">
       <div class="ed-timing">
-        <div class="ed-cap">
-          <span class="ed-title">Clip ${index + 1} <span>of ${clips().length}</span></span>
-          <span class="ed-len" id="ed-meta"></span>
+        <div class="ed-head">
+          <button type="button" class="icon-btn boxed" data-act="prev" aria-label="Previous clip (P)" ${first ? 'disabled' : ''}>${icon('chev-l')}</button>
+          <div class="ed-title"><b>Clip ${index + 1} <span>of ${clips().length}</span></b><small id="ed-meta"></small></div>
+          <button type="button" class="icon-btn boxed" data-act="next" aria-label="Next clip (N)" ${last ? 'disabled' : ''}>${icon('chev-r')}</button>
           <span class="bar-space"></span>
+          <button type="button" class="btn ed-replay" data-act="replay" aria-label="Replay clip (R)">${icon('replay')}<span class="btn-label">Replay</span><kbd>R</kbd></button>
           <button type="button" class="icon-btn" data-act="more" aria-label="More for this clip: reorder, reset, delete" aria-haspopup="dialog">${icon('dots')}</button>
-        </div>
-        <div class="ed-nav">
-          <button type="button" class="btn" data-act="prev" ${first ? 'disabled' : ''}>${icon('chev-l')}Prev<kbd>P</kbd></button>
-          <button type="button" class="btn" data-act="replay">${icon('replay')}Replay<kbd>R</kbd></button>
-          <button type="button" class="btn" data-act="next" ${last ? 'disabled' : ''}>Next${icon('chev-r')}<kbd>N</kbd></button>
         </div>
         <div class="scrub-wrap">
           <div class="scrub" id="scrub" role="slider" tabindex="0" aria-label="Position in this clip" aria-valuemin="0" aria-valuemax="${clip.end - clip.start}" aria-valuenow="0">
@@ -542,8 +593,8 @@ function step(delta) {
 function openClip(id) {
   setTab('trim', { cue: false });
   selectClip(id);
-  const target = matchMedia('(min-width: 720px)').matches ? $('.stage') : $('.panel');
-  target.scrollIntoView({ block: matchMedia('(min-width: 720px)').matches ? 'start' : 'nearest', behavior: 'smooth' });
+  if (phonePortrait.matches) showEditorOnPhone();
+  else window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // ---------- trim actions ----------
@@ -568,6 +619,7 @@ function trimAction(act, el) {
     case 'prev': return step(-1);
     case 'next': return step(1);
     case 'replay': return playClip(clip);
+    case 'roster': return openRoster();
     case 'edge':
       state.edge = el.dataset.edge;
       return renderEditor();
@@ -694,7 +746,12 @@ document.addEventListener('click', (e) => {
   if (e.detail > 0) e.target.closest?.('button')?.blur();
 });
 
-// Dialogs: tap the dimmed area to close; menu items close their menu first.
+// Dialogs: every pop-up gets an X in the corner, and tapping the dimmed area also
+// closes it. Menu items close their menu first.
+$$('dialog').forEach((dlg) => {
+  dlg.insertAdjacentHTML('afterbegin',
+    `<button type="button" class="dlg-x" data-close aria-label="Close">${icon('x')}</button>`);
+});
 $$('dialog').forEach((dlg) => {
   dlg.addEventListener('click', (e) => {
     if (e.target === dlg || e.target.closest('[data-close]') || e.target.closest('.menu-item')) dlg.close();
@@ -766,22 +823,30 @@ $('#file-game').addEventListener('change', async (e) => {
   }
 });
 
-$('#btn-roster').addEventListener('click', () => $('#file-roster').click());
+function openRoster() {
+  armBack();
+  rosterPage.show();
+}
+$('#btn-roster').addEventListener('click', openRoster);
 $('#file-roster').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   e.target.value = '';
   if (!file) return;
   try {
-    state.game.roster = parseRosterText(await file.text(), file.name);
-    changed();
-    renderAll();
-    toast(`Roster loaded: ${state.game.roster.length} players.`);
+    const roster = parseRosterText(await file.text(), file.name);
+    if (state.game.roster.length && !confirm(`Replace the ${state.game.roster.length} players on the roster with the ${roster.length} in this file?`)) return;
+    setRoster(roster);
+    if (rosterPage.isOpen()) rosterPage.render();
+    toast(`Roster loaded: ${roster.length} players.`);
   } catch (err) {
     toast(err.message || 'That team file could not be read.');
   }
 });
 
-$('#btn-present').addEventListener('click', () => presenter.enter());
+$('#btn-present').addEventListener('click', () => {
+  presenter.enter();
+  if (presenter.isActive()) armBack();
+});
 
 $('#btn-settings').addEventListener('click', () => {
   renderSettings();
@@ -959,7 +1024,7 @@ document.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   const t = e.target;
   if (t.matches && t.matches('input, textarea, select, [contenteditable]')) return;
-  if (document.querySelector('dialog[open]') || !state.game.source) return;
+  if (document.querySelector('dialog[open]') || rosterPage.isOpen() || !state.game.source) return;
   if (presenter.isActive()) { presenter.handleKey(e); return; }
   const key = e.key.toLowerCase();
   if (state.tab === 'clip' && !e.repeat) {
@@ -988,6 +1053,8 @@ window.addEventListener('blur', () => {
 
 async function start() {
   const saved = localStore.load() || newGame();
+  // No roster in the saved game: start from the team roster kept in this browser.
+  if (!saved.roster.length) saved.roster = loadTeam();
   let fromLink = null;
   try {
     fromLink = linkStore.load(location.hash);

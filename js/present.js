@@ -4,8 +4,8 @@
 // YouTube iframe in the page reloads it. Instead the existing player is pinned
 // (position: fixed) over the empty #pv-stage area and put back on exit.
 
-import { categoryLabel } from './clips.js';
-import { playerLabel } from './roster.js';
+import { categoryLabel } from './clips.js?v=7';
+import { playerLabel } from './roster.js?v=7';
 
 const PREFS_KEY = 'tapescope.present';
 const REEL_GAP_MS = 1500; // pause between clips in Play all

@@ -33,6 +33,14 @@ them to the team. Never call it "Film Room"; that was the working name.
 - Tabs are **Review** (watch and clip, `data-tab="clip"`) and **Clips** (edit,
   `data-tab="trim"`). The internal ids kept the old names; the labels are what the
   owner chose.
+- The team roster page (`js/team.js`) lays the roster out as 2 G, 3 D pairs, 3
+  forward lines, plus extras (`SLOTS` in `js/roster.js`). The roster keeps lineup
+  order (it is not sorted); sort by number only where it is displayed as a list.
+  It is saved to the current game and to `tapescope.team` in localStorage.
+- Every dialog gets an X (added in `app.js`), and `showModal` is wrapped so the
+  phone Back button closes the top pop-up, page or presentation instead of leaving.
+- The video must never scroll off screen at any size: sticky on phone and tablet,
+  a window-height layout on desktop, pinned left on a phone held sideways.
 - Presentation mode (`js/present.js`) is always dark (`.force-dark`). It never
   moves the YouTube iframe (that reloads it); it pins `.player-wrap` over `#pv-stage`.
 - Four layouts in `css/styles.css`: phone portrait (video pinned on top), phone
@@ -47,6 +55,16 @@ them to the team. Never call it "Film Room"; that was the working name.
 
 Phase 1 (clip, trim, save/share) and Phase 2 (presentation mode) are built. Next in
 `PLAN.md` is Phase 3, drawing on a paused clip.
+
+## Releasing
+
+Every file link carries `?v=N` (in `index.html` and every relative `import`), so a
+browser never mixes old and new modules after a deploy (GitHub Pages caches for
+10 minutes, and a mix breaks the app at load). Bump N everywhere on each release:
+
+```bash
+grep -rl "?v=7" index.html js | xargs sed -i 's/?v=7/?v=8/g'
+```
 
 ## Running and testing
 
