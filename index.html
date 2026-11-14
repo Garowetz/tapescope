@@ -8,6 +8,13 @@
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="theme-color" content="#0a0c0f">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%235cb8ff'/%3E%3Ccircle cx='16' cy='16' r='8.5' fill='none' stroke='%23031525' stroke-width='2.2'/%3E%3Cpath d='M13.6 12.2v7.6l6.4-3.8z' fill='%23031525'/%3E%3C/svg%3E">
+  <script>
+    // Apply the saved theme before the page paints, so it never flashes the wrong colours.
+    try {
+      var t = localStorage.getItem('tapescope.theme');
+      document.documentElement.dataset.theme = ['dark', 'light', 'system'].indexOf(t) >= 0 ? t : 'dark';
+    } catch (e) { document.documentElement.dataset.theme = 'dark'; }
+  </script>
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
@@ -36,6 +43,11 @@
       <symbol id="i-fwd5" viewBox="0 0 24 24"><path d="M12 5a7.5 7.5 0 1 0 7.2 5.4"/><path d="M12 2.2L14.8 5 12 7.8"/><text x="12" y="15.4" text-anchor="middle" font-size="7.5" font-weight="700" font-family="system-ui, sans-serif" fill="currentColor" stroke="none">5</text></symbol>
       <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4.5 19.5l1-4.2L16.2 4.600a1.7 1.7 0 0 1 2.400 0l.8.8a1.7 1.7 0 0 1 0 2.400L8.7 18.5z"/></symbol>
       <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 3v18"/><path d="M12 4.5h7l-2 3 2 3h-7" /></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+      <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></symbol>
+      <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+      <symbol id="i-tv" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="12" rx="2"/><path d="M8.5 20h7M12 16.5V20"/><path d="M10.5 8.2v4.6l4-2.3z" fill="currentColor" stroke="none"/></symbol>
+      <symbol id="i-expand" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
       <symbol id="i-logo" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="var(--accent)" stroke="none"/><circle cx="16" cy="16" r="8.5" stroke="var(--accent-ink)" stroke-width="2.2"/><path d="M13.6 12.2v7.600l6.4-3.8z" fill="var(--accent-ink)" stroke="none"/></symbol>
     </defs>
   </svg>
@@ -47,6 +59,9 @@
     </div>
     <label class="title-wrap" id="title-wrap" hidden><input id="game-title" class="title-input" type="text" placeholder="Name this game" aria-label="Game title" autocomplete="off"><svg class="i" aria-hidden="true"><use href="#i-pencil"/></svg></label>
     <span class="bar-space"></span>
+    <button type="button" class="btn soft" id="btn-present" aria-label="Present" hidden>
+      <svg class="i" aria-hidden="true"><use href="#i-tv"/></svg><span class="btn-label">Present</span>
+    </button>
     <button type="button" class="btn ghost" id="btn-share" aria-label="Share" hidden>
       <svg class="i" aria-hidden="true"><use href="#i-share"/></svg><span class="btn-label">Share</span>
     </button>
@@ -68,9 +83,9 @@
         </form>
         <button type="button" class="btn ghost outline" data-open-game><svg class="i" aria-hidden="true"><use href="#i-folder"/></svg>Open a saved game</button>
         <ol class="steps">
-          <li><span class="step-n">1</span><div><strong>Clip it</strong><p>Watch the game once. Press one button right after something happens.</p></div></li>
-          <li><span class="step-n">2</span><div><strong>Trim</strong><p>Tighten each clip, tag the players and add your talking points.</p></div></li>
-          <li><span class="step-n">3</span><div><strong>Present</strong><p>Open Trim and step through your clips with Next. Use ¼× for slow motion.</p></div></li>
+          <li><span class="step-n">1</span><div><strong>Review</strong><p>Watch the game once. Press Clip it right after something happens.</p></div></li>
+          <li><span class="step-n">2</span><div><strong>Clips</strong><p>Tighten each clip, tag the players and add your talking points.</p></div></li>
+          <li><span class="step-n">3</span><div><strong>Present</strong><p>Show the clips on a TV or iPad, one at a time, in slow motion if you like.</p></div></li>
         </ol>
         <p class="fine">Nothing is uploaded. Your games stay in this browser and in files you keep.</p>
       </div>
@@ -97,9 +112,9 @@
       </section>
 
       <aside class="panel">
-        <div class="seg mode" role="tablist">
-          <button type="button" class="tab active" data-tab="clip" role="tab">Clip</button>
-          <button type="button" class="tab" data-tab="trim" role="tab">Trim<span id="clip-count" class="badge" hidden></span></button>
+        <div class="tabs" role="tablist" aria-label="Sections">
+          <button type="button" class="tab active" data-tab="clip" role="tab">Review</button>
+          <button type="button" class="tab" data-tab="trim" role="tab">Clips<span id="clip-count" class="badge" hidden></span></button>
         </div>
 
         <div id="tab-clip" class="tab-body">
@@ -133,11 +148,64 @@
     </div>
   </main>
 
+  <!-- Presentation mode. present.js pins the video player over #pv-stage. -->
+  <section id="present" class="present force-dark" hidden aria-label="Presentation">
+    <header class="pv-top">
+      <div class="pv-count"><b id="pv-num">1</b><span id="pv-of"></span></div>
+      <h1 class="pv-title" id="pv-title"></h1>
+      <span class="bar-space"></span>
+      <button type="button" class="btn ghost" data-pv="list" aria-label="All clips"><svg class="i" aria-hidden="true"><use href="#i-grid"/></svg><span class="btn-label">All clips</span></button>
+      <button type="button" class="btn ghost" data-pv="view" aria-label="Display options"><svg class="i" aria-hidden="true"><use href="#i-eye"/></svg><span class="btn-label">Display</span></button>
+      <button type="button" class="btn ghost" data-pv="full" id="pv-full" aria-label="Full screen" hidden><svg class="i" aria-hidden="true"><use href="#i-expand"/></svg></button>
+      <button type="button" class="btn" data-pv="exit" aria-label="Done presenting"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg><span class="btn-label">Done</span></button>
+    </header>
+    <div class="pv-main" id="pv-main">
+      <div class="pv-stage" id="pv-stage"></div>
+      <aside class="pv-notes" id="pv-notes" aria-live="polite"></aside>
+    </div>
+    <footer class="pv-controls">
+      <div class="pv-progress" id="pv-progress" aria-hidden="true"><div class="pv-fill" id="pv-fill"></div></div>
+      <div class="pv-row">
+        <div class="seg rates pv-rates" role="group" aria-label="Playback speed">
+          <button type="button" data-rate="0.25">¼×</button>
+          <button type="button" data-rate="0.5">½×</button>
+          <button type="button" data-rate="1" class="active">1×</button>
+        </div>
+        <div class="pv-nav">
+          <button type="button" class="pv-big" data-pv="prev" aria-label="Previous clip"><svg class="i" aria-hidden="true"><use href="#i-chev-l"/></svg><span>Prev</span><kbd>←</kbd></button>
+          <button type="button" class="pv-big" data-pv="replay" aria-label="Replay this clip"><svg class="i" aria-hidden="true"><use href="#i-replay"/></svg><span>Replay</span><kbd>R</kbd></button>
+          <button type="button" class="play pv-play" id="pv-play" data-pv="play" aria-label="Play">
+            <svg class="i i-play" aria-hidden="true"><use href="#i-play"/></svg>
+            <svg class="i i-pause" aria-hidden="true"><use href="#i-pause"/></svg>
+          </button>
+          <button type="button" class="pv-big" data-pv="next" aria-label="Next clip"><span>Next</span><svg class="i" aria-hidden="true"><use href="#i-chev-r"/></svg><kbd>→</kbd></button>
+        </div>
+        <label class="switch pv-reel"><input type="checkbox" id="pv-reel"><span class="track"></span><span><strong>Play all</strong></span></label>
+      </div>
+    </footer>
+
+    <dialog id="dlg-pv-list" class="dialog pv-list-dlg">
+      <div class="stack">
+        <h2>Jump to a clip</h2>
+        <div id="pv-grid" class="pv-grid"></div>
+      </div>
+    </dialog>
+
+    <dialog id="dlg-pv-view" class="dialog">
+      <form method="dialog">
+        <h2>Display</h2>
+        <label class="switch"><input type="checkbox" id="pv-show-notes"><span class="track"></span><span><strong>Talking points panel</strong><small>Category, players and your notes beside the video.</small></span></label>
+        <label class="switch"><input type="checkbox" id="pv-show-names"><span class="track"></span><span><strong>Player names</strong><small>Off shows jersey numbers only.</small></span></label>
+        <div class="dialog-actions"><button class="btn primary">Done</button></div>
+      </form>
+    </dialog>
+  </section>
+
   <dialog id="dlg-menu" class="dialog menu">
     <div class="menu-list">
       <button type="button" class="menu-item" id="btn-video" data-needs-video><svg class="i" aria-hidden="true"><use href="#i-link"/></svg><span><strong>Change video</strong></span></button>
       <button type="button" class="menu-item" id="btn-roster"><svg class="i" aria-hidden="true"><use href="#i-users"/></svg><span><strong id="roster-label">Load roster</strong><small id="roster-status"></small></span></button>
-      <button type="button" class="menu-item" id="btn-settings"><svg class="i" aria-hidden="true"><use href="#i-sliders"/></svg><span><strong>Clip length</strong><small id="window-status"></small></span></button>
+      <button type="button" class="menu-item" id="btn-settings"><svg class="i" aria-hidden="true"><use href="#i-sliders"/></svg><span><strong>Settings</strong><small id="window-status"></small></span></button>
       <hr>
       <button type="button" class="menu-item" id="btn-save" data-needs-video><svg class="i" aria-hidden="true"><use href="#i-download"/></svg><span><strong>Save game file</strong><small>The reliable copy. Keep it with the coaches.</small></span></button>
       <button type="button" class="menu-item" id="btn-open"><svg class="i" aria-hidden="true"><use href="#i-folder"/></svg><span><strong>Open game file</strong></span></button>
@@ -184,10 +252,21 @@
 
   <dialog id="dlg-settings" class="dialog">
     <form method="dialog">
-      <h2>Clip length</h2>
-      <p class="muted">How much video a new clip covers around the moment you press Clip it. Clips you already made don't change.</p>
-      <div class="field"><span>Before the moment</span><div class="seg wide" id="set-before"></div></div>
-      <div class="field"><span>After the moment</span><div class="seg wide" id="set-after"></div></div>
+      <h2>Settings</h2>
+      <div class="field"><span>Appearance</span>
+        <div class="seg wide" id="set-theme" role="group" aria-label="Appearance">
+          <button type="button" data-theme-pick="dark">Dark</button>
+          <button type="button" data-theme-pick="light">Light</button>
+          <button type="button" data-theme-pick="system">System</button>
+        </div>
+        <small class="hint">System follows your phone, tablet or computer.</small>
+      </div>
+      <hr class="rule">
+      <div class="field"><span>Clip length</span>
+        <p class="muted">How much video a new clip covers around the moment you press Clip it. Clips you already made don't change.</p>
+      </div>
+      <div class="field sub"><span>Before the moment</span><div class="seg wide" id="set-before"></div></div>
+      <div class="field sub"><span>After the moment</span><div class="seg wide" id="set-after"></div></div>
       <div class="dialog-actions"><button class="btn primary">Done</button></div>
     </form>
   </dialog>

@@ -23,9 +23,18 @@ them to the team. Never call it "Film Room"; that was the working name.
 
 ## Design
 
-- Dark theme, one accent (ice blue), category colours green / orange / lavender.
+- Dark theme by default, plus Light and System (Settings > Appearance). Colours are
+  tokens on `:root`; the light set is under `:root[data-theme="light"]` and repeated
+  for `system` in a `prefers-color-scheme` block. Keep both copies in step. An inline
+  script in `index.html` applies the saved theme before paint. One accent (ice
+  blue), category colours green / orange / lavender.
   Barlow Condensed (self-hosted in `fonts/`) for headings, numbers and labels;
   system font for body text.
+- Tabs are **Review** (watch and clip, `data-tab="clip"`) and **Clips** (edit,
+  `data-tab="trim"`). The internal ids kept the old names; the labels are what the
+  owner chose.
+- Presentation mode (`js/present.js`) is always dark (`.force-dark`). It never
+  moves the YouTube iframe (that reloads it); it pins `.player-wrap` over `#pv-stage`.
 - Four layouts in `css/styles.css`: phone portrait (video pinned on top), phone
   landscape, tablet (one column), desktop (side rail). Check all four after any
   UI change. Touch targets stay at 44px or more.
@@ -36,7 +45,8 @@ them to the team. Never call it "Film Room"; that was the working name.
 
 ## Status
 
-Phase 1 (Clip it, Trim, save/share) is built. Next is Phase 2, presentation mode.
+Phase 1 (clip, trim, save/share) and Phase 2 (presentation mode) are built. Next in
+`PLAN.md` is Phase 3, drawing on a paused clip.
 
 ## Running and testing
 

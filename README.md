@@ -9,9 +9,11 @@ Nothing is installed and there are no accounts. Tape Scope plays YouTube video
 inside the page, and everything you make stays in your browser and in files you
 keep. This site and repo hold code only: no games, rosters or player names.
 
-## The workflow: Clip it, Trim, Present
+## The workflow: Review, Clips, Present
 
-### 1. Clip it (while watching the game)
+### 1. Review (while watching the game)
+
+The **Review** tab is where you watch the game and mark moments.
 
 1. Paste the game's YouTube link and press **Start clipping**.
 2. Name the game in the box at the top (for example "vs Guelph - Nov 15").
@@ -25,17 +27,17 @@ keep. This site and repo hold code only: no games, rosters or player names.
 Each press saves a clip from 30 seconds before to 10 seconds after that moment.
 Don't worry about exact timing; you fix that in the next step. **Undo** removes
 the last clip. Pressing Good or Fix straight after Clip it tags that clip rather
-than making a second one. **Clip length** in the menu changes the before/after
+than making a second one. **Settings** in the menu changes the before/after
 window for new clips.
 
 Other keys: **Space** plays and pauses, **Left / Right arrows** jump 5 seconds.
 
-If you peek at a clip mid-game, the Clip screen shows **Back to where I was** so
+If you peek at a clip mid-game, the Review tab shows **Back to where I was** so
 you can pick the game up again.
 
-### 2. Trim (afterward)
+### 2. Clips (afterward)
 
-Switch to **Trim**, or tap any clip in the list or on the coloured game strip.
+Switch to the **Clips** tab, or tap any clip in the list or on the coloured game strip.
 
 - **Prev / Replay / Next** (keys **P / R / N**) step through the clips. Each one
   plays from its start to its end and then pauses.
@@ -54,12 +56,33 @@ Switch to **Trim**, or tap any clip in the list or on the coloured game strip.
 
 ### 3. Present (to the team)
 
-A full-screen presentation mode for a TV or iPad is the next thing being built.
-For now, open the game on the laptop or iPad connected to the TV and use Trim:
-**Prev / Replay / Next** and the slow-motion buttons do the job.
+Connect the laptop or iPad to the TV and press **Present** at the top. The
+screen goes full size and shows one clip at a time: the video, the clip's number
+and title, and its category, players and talking points beside it.
+
+- **Prev / Replay / Next** step through the clips. Each clip plays from its start
+  to its end, then pauses so you can talk about it.
+- The big round button plays and pauses. **¼× / ½× / 1×** set the speed.
+- Tap or drag the thin bar above the buttons to move within the clip.
+- **Play all** runs every clip in order with a short pause between them.
+- **All clips** jumps straight to any clip.
+- **Display** turns the talking-points panel off (video only) and switches player
+  names off, so only jersey numbers show.
+- **Done** goes back to editing, on the clip you finished on.
+
+Keys: **Left / Right arrows** or **Page Up / Page Down** (what most presentation
+clickers send) for previous and next, **Space** to play or pause, **R** to replay,
+**Home / End** for the first and last clip, **Esc** to finish.
+
+Presentation mode stays dark even in the light theme, because it is meant for a TV.
 
 Tips for the session: keep it to 6-10 clips, lead with good ones, ask "what do you
 see?" before explaining, and end on a positive clip.
+
+## Settings
+
+**Settings** in the menu has **Appearance** (Dark, Light, or System to follow
+your device; Dark is the default) and the clip length for new clips.
 
 ## Saving and sharing
 
@@ -120,7 +143,8 @@ python -m http.server 8123
 | `js/roster.js` | Team file parsing (CSV or JSON) |
 | `js/players/youtube.js` | YouTube player adapter. A local-file adapter exposes the same methods |
 | `js/storage/local.js`, `file.js`, `link.js` | Storage adapters: autosave, game file, share link |
-| `js/app.js` | UI wiring |
+| `js/app.js` | UI wiring and settings |
+| `js/present.js` | Presentation mode. Pins the existing player over the presentation screen rather than moving it, because moving a YouTube iframe reloads it |
 | `js/vendor/lz-string.min.js` | [lz-string](https://github.com/pieroxy/lz-string) 1.5.0 (MIT), compresses share links |
 | `fonts/` | [Barlow Condensed](https://github.com/jpt/barlow) (SIL Open Font License), self-hosted |
 

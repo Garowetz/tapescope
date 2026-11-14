@@ -12,6 +12,7 @@ import { createYouTubePlayer, parseYouTubeUrl } from './players/youtube.js';
 import { localStore } from './storage/local.js';
 import { fileStore } from './storage/file.js';
 import { linkStore, LONG_LINK } from './storage/link.js';
+import { createPresenter } from './present.js';
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => [...document.querySelectorAll(sel)];
@@ -41,6 +42,43 @@ const state = {
 };
 
 const player = createYouTubePlayer($('#player'));
+
+const presenter = createPresenter({
+  player,
+  getGame: () => state.game,
+  getSelectedId: () => state.selectedId,
+  select: (id, opts) => selectClip(id, opts),
+  playClip: (clip, from) => playClip(clip, from),
+  stopClip: () => { state.playing = null; },
+  toast: (msg) => toast(msg),
+  onExit: () => {
+    // Come back to the clip you finished on.
+    if (clips().length) state.tab = 'trim';
+    renderAll();
+  },
+});
+
+// ---------- theme ----------
+
+const THEME_KEY = 'tapescope.theme';
+const THEMES = ['dark', 'light', 'system'];
+const THEME_NAMES = { dark: 'Dark', light: 'Light', system: 'System' };
+const lightQuery = matchMedia('(prefers-color-scheme: light)');
+const getTheme = () => (THEMES.includes(document.documentElement.dataset.theme) ? document.documentElement.dataset.theme : 'dark');
+
+function syncThemeColor() {
+  const t = getTheme();
+  const light = t === 'light' || (t === 'system' && lightQuery.matches);
+  $('meta[name="theme-color"]').content = light ? '#eef1f5' : '#0a0c0f';
+}
+
+function setTheme(t) {
+  document.documentElement.dataset.theme = t;
+  try { localStorage.setItem(THEME_KEY, t); } catch { /* ignore */ }
+  syncThemeColor();
+}
+lightQuery.addEventListener('change', syncThemeColor);
+syncThemeColor();
 
 // ---------- helpers ----------
 
@@ -146,6 +184,7 @@ player.onTime((t) => {
     playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play');
   }
   renderScrub(t);
+  presenter.tick(t, playing);
   const head = $('#tape-head');
   if (head && duration > 0) head.style.left = `${clamp01(t / duration) * 100}%`;
   if (!state.playing) return;
@@ -155,6 +194,7 @@ player.onTime((t) => {
   else if (state.playing.entered) {
     player.pause();
     state.playing = null;
+    presenter.clipEnded(clip);
   }
 });
 
@@ -283,6 +323,7 @@ function renderChrome() {
   $('#welcome').hidden = hasVideo;
   $('#workspace').hidden = !hasVideo;
   $('#btn-share').hidden = !hasVideo;
+  $('#btn-present').hidden = !hasVideo || !clips().length;
   $('#title-wrap').hidden = !hasVideo;
   $$('[data-needs-video]').forEach((el) => { el.hidden = !hasVideo; });
   if (document.activeElement !== $('#game-title')) $('#game-title').value = g.title;
@@ -292,7 +333,7 @@ function renderChrome() {
   $('#roster-status').textContent = g.roster.length
     ? `${g.roster.length} players loaded`
     : 'A team file with number, name, position';
-  $('#window-status').textContent = `New clips save ${windowText()}`;
+  $('#window-status').textContent = `${THEME_NAMES[getTheme()]} theme · clips ${state.settings.before}s before, ${state.settings.after}s after`;
   $('#clip-window').textContent = `Saves ${windowText()}`;
 
   const count = $('#clip-count');
@@ -367,7 +408,7 @@ function renderEditor() {
   const box = $('#tab-trim');
   const clip = selected();
   if (!clip) {
-    box.innerHTML = '<p class="empty">Nothing to trim yet. Switch to Clip and press Clip it while you watch the game.</p>';
+    box.innerHTML = '<p class="empty">No clips yet. Go to Review and press Clip it while you watch the game.</p>';
     return;
   }
   const g = state.game;
@@ -648,6 +689,11 @@ function renderSettings() {
   };
   fill($('#set-before'), BEFORE_OPTIONS, state.settings.before, 'before');
   fill($('#set-after'), AFTER_OPTIONS, state.settings.after, 'after');
+  const theme = getTheme();
+  $$('[data-theme-pick]').forEach((b) => {
+    b.classList.toggle('active', b.dataset.themePick === theme);
+    b.setAttribute('aria-pressed', b.dataset.themePick === theme);
+  });
 }
 
 // ---------- events ----------
@@ -745,11 +791,20 @@ $('#file-roster').addEventListener('change', async (e) => {
   }
 });
 
+$('#btn-present').addEventListener('click', () => presenter.enter());
+
 $('#btn-settings').addEventListener('click', () => {
   renderSettings();
   $('#dlg-settings').showModal();
 });
 $('#dlg-settings').addEventListener('click', (e) => {
+  const pick = e.target.closest('[data-theme-pick]');
+  if (pick) {
+    setTheme(pick.dataset.themePick);
+    renderSettings();
+    renderChrome();
+    return;
+  }
   const b = e.target.closest('[data-key]');
   if (!b) return;
   state.settings[b.dataset.key] = Number(b.dataset.v);
@@ -915,6 +970,7 @@ document.addEventListener('keydown', (e) => {
   const t = e.target;
   if (t.matches && t.matches('input, textarea, select, [contenteditable]')) return;
   if (document.querySelector('dialog[open]') || !state.game.source) return;
+  if (presenter.isActive()) { presenter.handleKey(e); return; }
   const key = e.key.toLowerCase();
   if (state.tab === 'clip' && !e.repeat) {
     if (key === 'c') return addClip('');
