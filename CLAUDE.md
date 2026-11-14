@@ -21,6 +21,19 @@ them to the team. Never call it "Film Room"; that was the working name.
 - Game files carry `schemaVersion`. Any format change must keep old files opening
   (`normalizeGame` in `js/game.js`).
 
+## Design
+
+- Dark theme, one accent (ice blue), category colours green / orange / lavender.
+  Barlow Condensed (self-hosted in `fonts/`) for headings, numbers and labels;
+  system font for body text.
+- Four layouts in `css/styles.css`: phone portrait (video pinned on top), phone
+  landscape, tablet (one column), desktop (side rail). Check all four after any
+  UI change. Touch targets stay at 44px or more.
+- Secondary actions live in the three-dot menus, not on the main screens. The
+  owner rejected an earlier version for having too many buttons on mobile.
+- Category ids are `good`, `needs-work`, `teaching`; the labels shown are Good,
+  Fix, Teach.
+
 ## Status
 
 Phase 1 (Clip it, Trim, save/share) is built. Next is Phase 2, presentation mode.

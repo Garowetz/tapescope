@@ -14,19 +14,30 @@ import { fileStore } from './storage/file.js';
 import { linkStore, LONG_LINK } from './storage/link.js';
 
 const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => [...document.querySelectorAll(sel)];
 const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => (
   { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
 ));
+const icon = (name) => `<svg class="i" aria-hidden="true"><use href="#i-${name}"/></svg>`;
+const clamp01 = (n) => Math.max(0, Math.min(1, n));
 
 const SETTINGS_KEY = 'tapescope.settings';
+const DOUBLE_TAP_MS = 1500;  // a second identical press this soon is ignored
+const RETAG_MS = 5000;       // Good/Fix this soon after a clip re-tags it instead
+const AWAY_SECONDS = 5;      // how far the video must have moved to offer "back to where I was"
 
 const state = {
   game: newGame(),
   settings: loadSettings(),
   tab: 'clip',
+  edge: 'start',     // which end of the clip the trim controls act on
   selectedId: null,
-  undoStack: [],   // ids of clips made this sitting, newest last
-  playing: null,   // { id, entered } while a clip is playing to its end
+  undoStack: [],     // ids of clips made this sitting, newest last
+  playing: null,     // { id, entered } while a clip is playing to its end
+  lastAdd: null,     // { id, at, time, category } of the newest clip, for double-tap handling
+  newSinceTrim: false,
+  watchAt: null,     // where the coach was in the game when they left the Clip tab
+  duration: 0,
 };
 
 const player = createYouTubePlayer($('#player'));
@@ -46,12 +57,23 @@ function saveSettings() {
 }
 
 let toastTimer = null;
-function toast(message) {
+function toast(message, { action, onAction, ms = 3500 } = {}) {
   const el = $('#toast');
-  el.textContent = message;
+  el.textContent = '';
+  const text = document.createElement('span');
+  text.textContent = message;
+  el.append(text);
+  el.classList.toggle('has-action', !!action);
+  if (action) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = action;
+    btn.addEventListener('click', () => { el.classList.remove('show'); onAction(); });
+    el.append(btn);
+  }
   el.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 3500);
+  toastTimer = setTimeout(() => el.classList.remove('show'), ms);
 }
 
 let saveTimer = null;
@@ -63,6 +85,40 @@ function changed() {
 const clips = () => state.game.clips;
 const selected = () => clips().find((c) => c.id === state.selectedId) || null;
 const clipName = (clip, index) => clip.title || `Clip ${index + 1}`;
+const windowText = () => `${state.settings.before}s before, ${state.settings.after}s after`;
+const lastUndoable = () => {
+  for (let i = state.undoStack.length - 1; i >= 0; i--) {
+    const index = clips().findIndex((c) => c.id === state.undoStack[i]);
+    if (index >= 0) return { clip: clips()[index], index };
+  }
+  return null;
+};
+
+// Asks before a game with clips is replaced, offering to save a copy first.
+// Resolves true to go ahead, false to stay.
+function okToReplace() {
+  if (!clips().length) return Promise.resolve(true);
+  const n = clips().length;
+  $('#replace-body').textContent =
+    `${state.game.title || 'This game'} has ${n} clip${n === 1 ? '' : 's'}. Save a copy first so you can get it back.`;
+  const dlg = $('#dlg-replace');
+  return new Promise((resolve) => {
+    let answer = '';
+    const onClick = (e) => {
+      const b = e.target.closest('[data-answer]');
+      if (!b) return;
+      answer = b.dataset.answer;
+      dlg.close();
+    };
+    dlg.addEventListener('click', onClick);
+    dlg.addEventListener('close', () => {
+      dlg.removeEventListener('click', onClick);
+      if (answer === 'save') fileStore.save(state.game);
+      resolve(answer !== '');
+    }, { once: true });
+    dlg.showModal();
+  });
+}
 
 // ---------- playback ----------
 
@@ -77,6 +133,21 @@ function playClip(clip, from = clip.start) {
 // "entered" guards against the stale time a player can report just after a seek.
 player.onTime((t) => {
   $('#time').textContent = formatTime(t);
+  const duration = player.getDuration();
+  if (duration !== state.duration) {
+    state.duration = duration;
+    $('#duration').textContent = duration > 0 ? formatTime(duration) : '';
+    renderTape();
+  }
+  const playing = player.isPlaying();
+  const playBtn = $('#btn-play');
+  if (playBtn.classList.contains('is-playing') !== playing) {
+    playBtn.classList.toggle('is-playing', playing);
+    playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play');
+  }
+  renderScrub(t);
+  const head = $('#tape-head');
+  if (head && duration > 0) head.style.left = `${clamp01(t / duration) * 100}%`;
   if (!state.playing) return;
   const clip = clips().find((c) => c.id === state.playing.id);
   if (!clip) { state.playing = null; return; }
@@ -87,49 +158,69 @@ player.onTime((t) => {
   }
 });
 
-player.onError((message) => toast(message));
+player.onError((message) => toast(message, { ms: 8000 }));
 
 function loadVideo(startAt = 0) {
   const src = state.game.source;
-  $('#player-empty').hidden = !!src;
   if (src) player.load(src.id, startAt);
 }
 
 // ---------- clip it ----------
 
+function flash(category) {
+  const btn = document.querySelector(`[data-clip="${category}"]`);
+  if (!btn) return;
+  btn.classList.remove('flash');
+  void btn.offsetWidth; // restart the animation
+  btn.classList.add('flash');
+}
+
 function addClip(category) {
   if (!state.game.source || !player.isReady()) {
-    toast('Load a video first.');
+    toast('The video is still loading.');
     return;
   }
-  const clip = createClip(player.getTime(), state.settings, player.getDuration(), category);
+  const now = Date.now();
+  const time = player.getTime();
+  const last = state.lastAdd;
+  const lastClip = last && clips().find((c) => c.id === last.id);
+  if (lastClip) {
+    // A double tap is one clip, not two.
+    if (now - last.at < DOUBLE_TAP_MS && last.category === category) return;
+    // "Clip it" then "Good" straight after tags that clip rather than making another.
+    if (category && now - last.at < RETAG_MS && Math.abs(time - last.time) < AWAY_SECONDS) {
+      lastClip.category = category;
+      state.lastAdd = { ...last, at: now, category };
+      changed();
+      renderAll();
+      flash(category);
+      return;
+    }
+  }
+  const clip = createClip(time, state.settings, player.getDuration(), category);
   clips().push(clip);
   state.undoStack.push(clip.id);
+  state.lastAdd = { id: clip.id, at: now, time, category };
   state.selectedId = clip.id;
+  state.newSinceTrim = true;
+  state.watchAt = null;
   changed();
   renderAll();
-  const btn = document.querySelector(`[data-clip="${category}"]`);
-  if (btn) {
-    btn.classList.remove('flash');
-    void btn.offsetWidth; // restart the animation
-    btn.classList.add('flash');
-  }
-  const list = $('#clip-list');
-  list.scrollTop = list.scrollHeight;
+  flash(category);
 }
 
 function undoLastClip() {
-  let id = state.undoStack.pop();
-  while (id && !clips().some((c) => c.id === id)) id = state.undoStack.pop();
-  if (!id) return;
-  removeClip(id);
-  toast('Last clip removed.');
+  const last = lastUndoable();
+  if (!last) return;
+  state.undoStack = state.undoStack.filter((id) => id !== last.clip.id);
+  state.lastAdd = null;
+  removeClip(last.clip.id);
 }
 
 function removeClip(id) {
   const i = clips().findIndex((c) => c.id === id);
-  if (i < 0) return;
-  clips().splice(i, 1);
+  if (i < 0) return null;
+  const [clip] = clips().splice(i, 1);
   if (state.playing && state.playing.id === id) state.playing = null;
   if (state.selectedId === id) {
     const next = clips()[Math.min(i, clips().length - 1)];
@@ -137,31 +228,102 @@ function removeClip(id) {
   }
   changed();
   renderAll();
+  return { clip, index: i };
+}
+
+function deleteClip(id) {
+  const removed = removeClip(id);
+  if (!removed) return;
+  toast('Clip deleted', {
+    action: 'Undo',
+    ms: 7000,
+    onAction: () => {
+      clips().splice(Math.min(removed.index, clips().length), 0, removed.clip);
+      state.selectedId = removed.clip.id;
+      changed();
+      renderAll();
+    },
+  });
+}
+
+// ---------- tabs ----------
+
+function setTab(tab, { cue = true } = {}) {
+  if (tab === state.tab) return;
+  if (state.tab === 'clip' && player.isReady() && player.getTime() > 1) state.watchAt = player.getTime();
+  state.tab = tab;
+  if (tab === 'trim') {
+    if (clips().length && (state.newSinceTrim || !selected())) state.selectedId = clips()[0].id;
+    state.newSinceTrim = false;
+    const clip = selected();
+    // Bring the video to the clip being trimmed, so "Set start here" means something.
+    if (cue && clip && player.isReady()) {
+      state.playing = null;
+      player.pause();
+      player.seek(clip.start);
+    }
+  }
+  renderAll();
 }
 
 // ---------- rendering ----------
 
 function renderAll() {
-  renderHeader();
+  renderChrome();
   renderTabs();
   renderList();
+  renderTape();
   renderEditor();
 }
 
-function renderHeader() {
+function renderChrome() {
   const g = state.game;
+  const hasVideo = !!g.source;
+  document.body.classList.toggle('has-video', hasVideo);
+  $('#welcome').hidden = hasVideo;
+  $('#workspace').hidden = !hasVideo;
+  $('#btn-share').hidden = !hasVideo;
+  $('#title-wrap').hidden = !hasVideo;
+  $$('[data-needs-video]').forEach((el) => { el.hidden = !hasVideo; });
   if (document.activeElement !== $('#game-title')) $('#game-title').value = g.title;
-  $('#btn-roster').textContent = g.roster.length ? 'Update roster' : 'Load roster';
+  document.title = g.title ? `${g.title} · Tape Scope` : 'Tape Scope Review';
+
+  $('#roster-label').textContent = g.roster.length ? 'Update roster' : 'Load roster';
   $('#roster-status').textContent = g.roster.length
-    ? `Roster: ${g.roster.length} players`
-    : 'No roster loaded. Players can still be added by jersey number.';
-  $('#window-hint').textContent = `${state.settings.before}s before, ${state.settings.after}s after`;
-  $('#btn-undo').disabled = !state.undoStack.some((id) => clips().some((c) => c.id === id));
-  $('#clip-count').textContent = clips().length ? `(${clips().length})` : '';
+    ? `${g.roster.length} players loaded`
+    : 'A team file with number, name, position';
+  $('#window-status').textContent = `New clips save ${windowText()}`;
+  $('#clip-window').textContent = `Saves ${windowText()}`;
+
+  const count = $('#clip-count');
+  count.hidden = !clips().length;
+  count.textContent = clips().length;
+
+  const total = clips().reduce((sum, c) => sum + (c.end - c.start), 0);
+  $('#clips-sum').textContent = clips().length
+    ? `${clips().length} clip${clips().length === 1 ? '' : 's'} · ${formatTime(total)} of video`
+    : '';
+
+  const last = lastUndoable();
+  $('#btn-undo').hidden = !last;
+  const tag = last && last.clip.category ? ` · ${categoryLabel(last.clip.category)}` : '';
+  $('#clip-status').innerHTML = last
+    ? `${icon('check')}<span>Clip ${last.index + 1} saved at ${formatTime(last.clip.mark)}${esc(tag)}</span>`
+    : '<span>Press right after the play. You can trim it later.</span>';
+
+  const back = $('#btn-back');
+  const away = state.tab === 'clip' && state.watchAt != null && player.isReady()
+    && Math.abs(player.getTime() - state.watchAt) > AWAY_SECONDS;
+  back.hidden = !away;
+  if (away) back.textContent = `Back to where I was (${formatTime(state.watchAt)})`;
 }
 
 function renderTabs() {
-  document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === state.tab));
+  $$('.tab').forEach((t) => {
+    const on = t.dataset.tab === state.tab;
+    t.classList.toggle('active', on);
+    t.setAttribute('aria-selected', on);
+  });
   $('#tab-clip').hidden = state.tab !== 'clip';
   $('#tab-trim').hidden = state.tab !== 'trim';
 }
@@ -169,46 +331,70 @@ function renderTabs() {
 function renderList() {
   const list = $('#clip-list');
   if (!clips().length) {
-    list.innerHTML = '<li class="empty">No clips yet. Press Clip it right after something happens.</li>';
+    list.innerHTML = '<li class="empty">Your clips will show up here.</li>';
     return;
   }
-  list.innerHTML = clips().map((c, i) => `
-    <li><button type="button" class="clip-item cat-${esc(c.category)}${c.id === state.selectedId ? ' selected' : ''}" data-id="${esc(c.id)}" title="${esc(categoryLabel(c.category))}">
-      <span class="num">${i + 1}</span>
-      <span class="name">${esc(clipName(c, i))}</span>
-      <span class="when">${formatTime(c.start)} - ${formatTime(c.end)}</span>
-    </button></li>`).join('');
+  list.innerHTML = clips().map((c, i) => {
+    const meta = [`${formatTime(c.start)} – ${formatTime(c.end)}`];
+    if (c.category) meta.push(categoryLabel(c.category));
+    if (c.players.length) meta.push(c.players.map((n) => '#' + n).join(' '));
+    return `
+    <li><button type="button" class="clip-item cat-${esc(c.category)}${c.id === state.selectedId ? ' selected' : ''}" data-id="${esc(c.id)}">
+      <span class="ci-num">${i + 1}</span>
+      <span class="ci-main">
+        <span class="ci-title${c.title ? '' : ' untitled'}">${esc(clipName(c, i))}</span>
+        <span class="ci-meta">${esc(meta.join(' · '))}</span>
+      </span>
+      <span class="ci-len">${c.end - c.start}s</span>
+    </button></li>`;
+  }).join('');
+}
+
+// The whole game as one strip, with each clip where it happened.
+function renderTape() {
+  const tape = $('#tape');
+  const d = state.duration;
+  tape.hidden = !(d > 0 && clips().length);
+  if (tape.hidden) return;
+  tape.innerHTML = clips().map((c, i) => `
+    <button type="button" class="tape-seg cat-${esc(c.category)}${c.id === state.selectedId ? ' selected' : ''}" data-id="${esc(c.id)}"
+      style="left:${clamp01(c.start / d) * 100}%;width:calc(${clamp01((c.end - c.start) / d) * 100}% + 6px)"
+      aria-label="${esc(clipName(c, i))}, ${formatTime(c.start)}" title="${esc(clipName(c, i))} · ${formatTime(c.start)}"></button>`).join('')
+    + `<span class="tape-head" id="tape-head" style="left:${clamp01(player.getTime() / d) * 100}%"></span>`;
 }
 
 function renderEditor() {
   const box = $('#tab-trim');
   const clip = selected();
   if (!clip) {
-    box.innerHTML = '<p class="empty">No clips to trim yet. Use the Clip it tab while watching the game.</p>';
+    box.innerHTML = '<p class="empty">Nothing to trim yet. Switch to Clip and press Clip it while you watch the game.</p>';
     return;
   }
   const g = state.game;
   const index = clips().indexOf(clip);
-  const nudges = (edge, steps) => steps.map((n) =>
-    `<button type="button" class="btn small" data-act="nudge" data-edge="${edge}" data-by="${n}">${n > 0 ? '+' : ''}${n}</button>`).join('');
-  const neg = NUDGE_STEPS.filter((n) => n < 0);
-  const pos = NUDGE_STEPS.filter((n) => n > 0);
-  const edge = (name, label) => `
-    <div class="edge">
-      <span class="label">${label}</span>
-      <button type="button" class="btn" data-act="set-${name}">Set ${name} here</button>
-      <div class="edge-row">
-        ${nudges(name, neg)}
-        <input type="text" inputmode="numeric" id="ed-${name}" data-time="${name}" value="${formatTime(clip[name])}" aria-label="${label} time">
-        ${nudges(name, pos)}
-      </div>
-    </div>`;
+  const first = index === 0;
+  const last = index === clips().length - 1;
+  const edge = state.edge;
+  const edgeWord = edge === 'start' ? 'Start' : 'End';
+
+  const nudge = (n) => {
+    const word = `${edgeWord} ${Math.abs(n)} second${Math.abs(n) === 1 ? '' : 's'} ${n < 0 ? 'earlier' : 'later'}`;
+    return `<button type="button" class="nudge" data-act="nudge" data-by="${n}" aria-label="${word}">${n < 0 ? '−' : '+'}${Math.abs(n)}s</button>`;
+  };
+  // The active end shows its time as a field you can type in; the other is a button.
+  const pick = (name, label) => (edge === name
+    ? `<label class="edge-on"><span class="label">${label}</span>
+         <input type="text" inputmode="numeric" id="ed-time" data-time value="${formatTime(clip[name])}" aria-label="${label} time, type to change">
+       </label>`
+    : `<button type="button" data-act="edge" data-edge="${name}" aria-label="Adjust the ${name}, ${formatTime(clip[name])}">
+         <span class="label">${label}</span><b id="seg-${name}">${formatTime(clip[name])}</b>
+       </button>`);
 
   const available = g.roster.filter((p) => !clip.players.includes(p.number));
   const addPlayer = g.roster.length
-    ? `<select data-add-player aria-label="Add player">
-         <option value="">Add player...</option>
-         ${available.map((p) => `<option value="${p.number}">#${p.number} ${esc(p.name)}${p.position ? ' (' + esc(p.position) + ')' : ''}</option>`).join('')}
+    ? `<select data-add-player aria-label="Add a player">
+         <option value="">Add a player</option>
+         ${available.map((p) => `<option value="${p.number}">#${p.number} ${esc(p.name)}${p.position ? ' · ' + esc(p.position) : ''}</option>`).join('')}
        </select>`
     : `<form class="add-player" data-add-number>
          <input type="text" inputmode="numeric" placeholder="Jersey number" aria-label="Jersey number">
@@ -216,40 +402,53 @@ function renderEditor() {
        </form>`;
 
   box.innerHTML = `
-    <div class="editor">
-      <div class="nav">
-        <button type="button" class="btn" data-act="prev" ${index === 0 ? 'disabled' : ''}>Prev</button>
-        <button type="button" class="btn primary" data-act="replay">Replay</button>
-        <button type="button" class="btn" data-act="next" ${index === clips().length - 1 ? 'disabled' : ''}>Next</button>
-      </div>
-      <div class="editor-head">
-        <strong>Clip ${index + 1} of ${clips().length}</strong>
-        <span class="muted" id="ed-meta"></span>
-      </div>
-      ${edge('start', 'Start')}
-      ${edge('end', 'End')}
-      <button type="button" class="btn" data-act="reset">Reset to default window</button>
-      <label class="field"><span>Title</span>
-        <input type="text" data-field="title" value="${esc(clip.title)}" placeholder="Clip ${index + 1}">
-      </label>
-      <div class="field"><span>Category</span>
-        <div class="cats">
-          ${CATEGORIES.map((c) => `<button type="button" class="btn${c.id === clip.category ? ' active' : ''}" data-act="category" data-cat="${c.id}">${c.label}</button>`).join('')}
+    <div class="editor cat-${esc(clip.category)}">
+      <div class="ed-timing">
+        <div class="ed-cap">
+          <span class="ed-title">Clip ${index + 1} <span>of ${clips().length}</span></span>
+          <span class="ed-len" id="ed-meta"></span>
+          <span class="bar-space"></span>
+          <button type="button" class="icon-btn" data-act="more" aria-label="More for this clip: reorder, reset, delete" aria-haspopup="dialog">${icon('dots')}</button>
+        </div>
+        <div class="ed-nav">
+          <button type="button" class="btn" data-act="prev" ${first ? 'disabled' : ''}>${icon('chev-l')}Prev<kbd>P</kbd></button>
+          <button type="button" class="btn" data-act="replay">${icon('replay')}Replay<kbd>R</kbd></button>
+          <button type="button" class="btn" data-act="next" ${last ? 'disabled' : ''}>Next${icon('chev-r')}<kbd>N</kbd></button>
+        </div>
+        <div class="scrub-wrap">
+          <div class="scrub" id="scrub" role="slider" tabindex="0" aria-label="Position in this clip" aria-valuemin="0" aria-valuemax="${clip.end - clip.start}" aria-valuenow="0">
+            <div class="scrub-fill" id="scrub-fill"></div><div class="scrub-mark" id="scrub-mark"></div>
+          </div>
+          <div class="scrub-cap"><span id="scrub-cap">you clipped here</span></div>
+        </div>
+        <div class="edges">
+          <div class="seg wide edge-pick" role="group" aria-label="Which end to adjust">
+            ${pick('start', 'Start')}
+            ${pick('end', 'End')}
+          </div>
+          <div class="edge-row">
+            ${NUDGE_STEPS.map(nudge).join('')}
+          </div>
+          <button type="button" class="btn primary" data-act="set-here">${icon('pin')}Set ${edge} here</button>
+          <p class="edge-help">Pause where the clip should ${edge}, then tap Set ${edge} here.</p>
         </div>
       </div>
-      <div class="field"><span>Players</span>
-        <div class="chips">
-          ${clip.players.map((n) => `<button type="button" class="chip" data-act="remove-player" data-number="${n}" title="Remove">${esc(playerLabel(g.roster, n))}</button>`).join('')}
+      <div class="ed-details">
+        <label class="field"><span>Title</span>
+          <input type="text" data-field="title" value="${esc(clip.title)}" placeholder="What happened?" autocomplete="off">
+        </label>
+        <label class="field"><span>Talking points</span>
+          <textarea data-field="notes" rows="3" placeholder="What do you want the players to see?">${esc(clip.notes)}</textarea>
+        </label>
+        <div class="field"><span>Category</span>
+          <div class="cats">
+            ${CATEGORIES.filter((c) => c.id).map((c) => `<button type="button" class="cat${c.id === clip.category ? ' active' : ''}" data-act="category" data-cat="${c.id}" aria-pressed="${c.id === clip.category}"><span class="dot"></span>${c.label}</button>`).join('')}
+          </div>
         </div>
-        ${addPlayer}
-      </div>
-      <label class="field"><span>Talking points</span>
-        <textarea data-field="notes" rows="3">${esc(clip.notes)}</textarea>
-      </label>
-      <div class="row-3">
-        <button type="button" class="btn" data-act="up" ${index === 0 ? 'disabled' : ''}>Move up</button>
-        <button type="button" class="btn" data-act="down" ${index === clips().length - 1 ? 'disabled' : ''}>Move down</button>
-        <button type="button" class="btn danger" data-act="delete">Delete</button>
+        <div class="field"><span>Players</span>
+          <div class="chips">${clip.players.map((n) => `<button type="button" class="chip" data-act="remove-player" data-number="${n}" aria-label="Remove ${esc(playerLabel(g.roster, n))}">${esc(playerLabel(g.roster, n))}</button>`).join('')}</div>
+          ${addPlayer}
+        </div>
       </div>
     </div>`;
   renderTimes();
@@ -259,13 +458,37 @@ function renderEditor() {
 function renderTimes() {
   const clip = selected();
   if (!clip) return;
-  const start = $('#ed-start');
-  const end = $('#ed-end');
-  if (start) start.value = formatTime(clip.start);
-  if (end) end.value = formatTime(clip.end);
-  const meta = $('#ed-meta');
-  if (meta) meta.textContent = `Clipped at ${formatTime(clip.mark)} · ${clip.end - clip.start}s long`;
+  const set = (sel, text) => { const el = $(sel); if (el) el.textContent = text; };
+  set('#seg-start', formatTime(clip.start));
+  set('#seg-end', formatTime(clip.end));
+  set('#ed-meta', `${clip.end - clip.start}s long`);
+  const input = $('#ed-time');
+  if (input && document.activeElement !== input) input.value = formatTime(clip[state.edge]);
+  const mark = $('#scrub-mark');
+  const cap = $('#scrub-cap');
+  if (mark && cap) {
+    const at = (clip.mark - clip.start) / (clip.end - clip.start);
+    const off = at < 0 || at > 1;
+    mark.hidden = off;
+    cap.hidden = off;
+    mark.style.left = `${at * 100}%`;
+    cap.style.left = `clamp(46px, ${at * 100}%, calc(100% - 46px))`;
+  }
+  renderScrub(player.getTime());
   renderList();
+  renderTape();
+  renderChrome();
+}
+
+function renderScrub(t) {
+  const fill = $('#scrub-fill');
+  const clip = selected();
+  if (!fill || !clip) return;
+  const at = clamp01((t - clip.start) / (clip.end - clip.start));
+  fill.style.width = `${at * 100}%`;
+  const bar = $('#scrub');
+  bar.setAttribute('aria-valuenow', Math.round(at * (clip.end - clip.start)));
+  bar.setAttribute('aria-valuetext', formatTime(clip.start + at * (clip.end - clip.start)));
 }
 
 function selectClip(id, { play = true } = {}) {
@@ -273,6 +496,7 @@ function selectClip(id, { play = true } = {}) {
   if (!clip) return;
   state.selectedId = id;
   renderList();
+  renderTape();
   renderEditor();
   if (play) playClip(clip);
 }
@@ -283,29 +507,59 @@ function step(delta) {
   if (next) selectClip(next.id);
 }
 
+// Opening a clip from the list or the tape: go to Trim, play it, keep the video in view.
+function openClip(id) {
+  setTab('trim', { cue: false });
+  selectClip(id);
+  const target = matchMedia('(min-width: 720px)').matches ? $('.stage') : $('.panel');
+  target.scrollIntoView({ block: matchMedia('(min-width: 720px)').matches ? 'start' : 'nearest', behavior: 'smooth' });
+}
+
 // ---------- trim actions ----------
+
+function moveClip(clip, delta) {
+  const index = clips().indexOf(clip);
+  const to = index + delta;
+  if (to < 0 || to >= clips().length) return;
+  clips().splice(index, 1);
+  clips().splice(to, 0, clip);
+  changed();
+  renderAll();
+}
 
 function trimAction(act, el) {
   const clip = selected();
   if (!clip) return;
   const duration = player.getDuration();
-  const index = clips().indexOf(clip);
+  const edge = state.edge;
 
   switch (act) {
     case 'prev': return step(-1);
     case 'next': return step(1);
     case 'replay': return playClip(clip);
-    case 'set-start':
-      if (!player.isReady()) return toast('Load a video first.');
-      setStart(clip, player.getTime(), duration);
+    case 'edge':
+      state.edge = el.dataset.edge;
+      return renderEditor();
+    case 'more': {
+      const index = clips().indexOf(clip);
+      $('[data-clip-act="up"]').disabled = index === 0;
+      $('[data-clip-act="down"]').disabled = index === clips().length - 1;
+      $('#reset-hint').textContent = `Back to ${windowText()} the moment you clipped`;
+      return $('#dlg-clip').showModal();
+    }
+    case 'set-here': {
+      if (!player.isReady()) return toast('The video is still loading.');
+      const t = Math.round(player.getTime());
+      // Refuse rather than quietly squash the clip to one second.
+      if (edge === 'start' && t >= clip.end) return toast("That's after this clip's end. Move the end first, or tap Replay.");
+      if (edge === 'end' && t <= clip.start) return toast("That's before this clip's start. Move the start first, or tap Replay.");
+      if (edge === 'start') setStart(clip, t, duration); else setEnd(clip, t, duration);
+      toast(`${edge === 'start' ? 'Start' : 'End'} set to ${formatTime(clip[edge])}`, { ms: 1800 });
       break;
-    case 'set-end':
-      if (!player.isReady()) return toast('Load a video first.');
-      setEnd(clip, player.getTime(), duration);
-      break;
+    }
     case 'nudge': {
       const by = Number(el.dataset.by);
-      if (el.dataset.edge === 'start') {
+      if (edge === 'start') {
         setStart(clip, clip.start + by, duration);
         playClip(clip);
       } else {
@@ -314,31 +568,17 @@ function trimAction(act, el) {
       }
       break;
     }
-    case 'reset':
-      resetWindow(clip, state.settings, duration);
-      break;
     case 'category':
-      clip.category = el.dataset.cat;
+      // Tapping the active category again clears it back to untagged.
+      clip.category = clip.category === el.dataset.cat ? '' : el.dataset.cat;
       changed();
-      renderList();
-      return renderEditor();
+      renderAll();
+      return;
     case 'remove-player':
       clip.players = clip.players.filter((n) => n !== Number(el.dataset.number));
       changed();
-      return renderEditor();
-    case 'up':
-    case 'down': {
-      const to = index + (act === 'up' ? -1 : 1);
-      if (to < 0 || to >= clips().length) return;
-      clips().splice(index, 1);
-      clips().splice(to, 0, clip);
-      changed();
       renderList();
       return renderEditor();
-    }
-    case 'delete':
-      if (confirm(`Delete "${clipName(clip, index)}"?`)) removeClip(clip.id);
-      return;
     default:
       return;
   }
@@ -346,11 +586,26 @@ function trimAction(act, el) {
   renderTimes();
 }
 
+function clipMenuAction(act) {
+  const clip = selected();
+  if (!clip) return;
+  if (act === 'up') moveClip(clip, -1);
+  else if (act === 'down') moveClip(clip, 1);
+  else if (act === 'delete') deleteClip(clip.id);
+  else if (act === 'reset') {
+    resetWindow(clip, state.settings, player.getDuration());
+    changed();
+    renderTimes();
+    toast('Clip reset to its default window.', { ms: 1800 });
+  }
+}
+
 function addPlayerToClip(number) {
   const clip = selected();
   if (!clip || !Number.isFinite(number) || number < 0) return;
   if (!clip.players.includes(number)) clip.players.push(number);
   changed();
+  renderList();
   renderEditor();
 }
 
@@ -361,36 +616,70 @@ function setGame(game, startAt = 0) {
   state.selectedId = game.clips[0] ? game.clips[0].id : null;
   state.undoStack = [];
   state.playing = null;
+  state.lastAdd = null;
+  state.newSinceTrim = false;
+  state.watchAt = null;
   localStore.save(game);
   renderAll();
   loadVideo(startAt);
 }
 
-function hasWork() {
-  return clips().length > 0;
-}
-
-function shareUrl() {
-  return linkStore.save(state.game, { includeNames: $('#share-names').checked });
-}
-
 function renderShare() {
-  const url = shareUrl();
-  $('#share-url').value = url;
+  const url = linkStore.save(state.game, { includeNames: $('#share-names').checked });
+  $('#share-url').textContent = url;
   $('#share-info').textContent = url.length > LONG_LINK
-    ? `${url.length} characters. Long links can get cut off in some texting and email apps. Send the game file if it does not open.`
-    : `${url.length} characters.`;
+    ? 'This is a long link, and long links can get cut off in texts. For a copy that always works, use Save game file in the menu.'
+    : 'Links can get cut off in texts. For a copy that always works, use Save game file in the menu.';
+  return url;
+}
+
+function openShare() {
+  if (!state.game.source) return toast('Load a video first.');
+  $('#share-names').checked = false;
+  renderShare();
+  $('#share-native').hidden = !navigator.share;
+  $('#dlg-share').showModal();
+}
+
+function renderSettings() {
+  const fill = (box, options, value, key) => {
+    const all = options.includes(value) ? options : [...options, value].sort((a, b) => a - b);
+    box.innerHTML = all.map((n) => `<button type="button" data-key="${key}" data-v="${n}" class="${n === value ? 'active' : ''}" aria-pressed="${n === value}">${n}s</button>`).join('');
+  };
+  fill($('#set-before'), BEFORE_OPTIONS, state.settings.before, 'before');
+  fill($('#set-after'), AFTER_OPTIONS, state.settings.after, 'after');
 }
 
 // ---------- events ----------
 
-$('#url-form').addEventListener('submit', (e) => {
+// After a mouse or touch press, drop focus from the button so the Space bar goes
+// back to play/pause instead of pressing that button again. Keyboard users keep focus.
+document.addEventListener('click', (e) => {
+  if (e.detail > 0) e.target.closest?.('button')?.blur();
+});
+
+// Dialogs: tap the dimmed area to close; menu items close their menu first.
+$$('dialog').forEach((dlg) => {
+  dlg.addEventListener('click', (e) => {
+    if (e.target === dlg || e.target.closest('[data-close]') || e.target.closest('.menu-item')) dlg.close();
+  });
+});
+$('#btn-menu').addEventListener('click', () => $('#dlg-menu').showModal());
+$('#dlg-clip').addEventListener('click', (e) => {
+  const item = e.target.closest('[data-clip-act]');
+  if (item) clipMenuAction(item.dataset.clipAct);
+});
+
+$$('.url-form').forEach((form) => form.addEventListener('submit', async (e) => {
   e.preventDefault();
-  const parsed = parseYouTubeUrl($('#url-input').value);
+  const input = form.querySelector('input');
+  const parsed = parseYouTubeUrl(input.value);
   if (!parsed) return toast('That does not look like a YouTube link.');
+  const dlg = form.closest('dialog');
+  if (dlg) dlg.close();
   const current = state.game.source;
-  if (current && current.id !== parsed.id && hasWork()) {
-    if (!confirm('Start a new game with this video? Save the current game first if you want to keep its clips.')) return;
+  if (current && current.id !== parsed.id) {
+    if (!(await okToReplace())) return;
     setGame({ ...newGame(), roster: state.game.roster, source: { type: 'youtube', id: parsed.id } }, parsed.t);
   } else {
     state.game.source = { type: 'youtube', id: parsed.id };
@@ -398,38 +687,44 @@ $('#url-form').addEventListener('submit', (e) => {
     renderAll();
     loadVideo(parsed.t);
   }
-  $('#url-input').value = '';
-  $('#url-input').blur();
-});
+  input.value = '';
+  input.blur();
+}));
+
+$('#btn-video').addEventListener('click', () => $('#dlg-video').showModal());
 
 $('#game-title').addEventListener('input', (e) => {
   state.game.title = e.target.value;
+  document.title = e.target.value ? `${e.target.value} · Tape Scope` : 'Tape Scope Review';
   changed();
 });
+$('#game-title').addEventListener('keydown', (e) => { if (e.key === 'Enter') e.target.blur(); });
 
-$('#btn-new').addEventListener('click', () => {
-  if (hasWork() && !confirm('Start a new game? Save the current game first if you want to keep its clips.')) return;
-  setGame({ ...newGame(), roster: state.game.roster });
+$('#btn-new').addEventListener('click', async () => {
+  if (!(await okToReplace())) return;
+  localStore.save({ ...newGame(), roster: state.game.roster });
   location.reload(); // simplest way to clear the old video out of the player
 });
 
 $('#btn-save').addEventListener('click', () => {
   if (!state.game.source) return toast('Nothing to save yet. Load a video first.');
   fileStore.save(state.game);
+  toast('Game file downloaded.');
 });
 
-$('#btn-open').addEventListener('click', () => $('#file-game').click());
+const pickGame = () => $('#file-game').click();
+$('#btn-open').addEventListener('click', pickGame);
+$$('[data-open-game]').forEach((b) => b.addEventListener('click', pickGame));
 $('#file-game').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   e.target.value = '';
   if (!file) return;
   try {
     const game = await fileStore.load(file);
-    if (hasWork() && !confirm('Open this game? It replaces the game currently on screen.')) return;
-    setGame(game);
+    if (!(await okToReplace())) return;
     state.tab = game.clips.length ? 'trim' : 'clip';
-    renderAll();
-    toast(`Opened ${game.title || 'game'}: ${game.clips.length} clips.`);
+    setGame(game);
+    toast(`Opened ${game.title || 'game'}: ${game.clips.length} clip${game.clips.length === 1 ? '' : 's'}.`);
   } catch (err) {
     toast(err.message);
   }
@@ -451,83 +746,120 @@ $('#file-roster').addEventListener('change', async (e) => {
 });
 
 $('#btn-settings').addEventListener('click', () => {
-  const fill = (sel, options, value) => {
-    const all = options.includes(value) ? options : [...options, value].sort((a, b) => a - b);
-    sel.innerHTML = all.map((n) => `<option value="${n}"${n === value ? ' selected' : ''}>${n} seconds</option>`).join('');
-  };
-  fill($('#set-before'), BEFORE_OPTIONS, state.settings.before);
-  fill($('#set-after'), AFTER_OPTIONS, state.settings.after);
+  renderSettings();
   $('#dlg-settings').showModal();
 });
-$('#set-before').addEventListener('change', (e) => { state.settings.before = Number(e.target.value); saveSettings(); renderHeader(); });
-$('#set-after').addEventListener('change', (e) => { state.settings.after = Number(e.target.value); saveSettings(); renderHeader(); });
-
-$('#btn-share').addEventListener('click', () => {
-  if (!state.game.source) return toast('Nothing to share yet. Load a video first.');
-  $('#share-names').checked = false;
-  renderShare();
-  $('#dlg-share').showModal();
+$('#dlg-settings').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-key]');
+  if (!b) return;
+  state.settings[b.dataset.key] = Number(b.dataset.v);
+  saveSettings();
+  renderSettings();
+  renderChrome();
 });
+
+$('#btn-share').addEventListener('click', openShare);
+$('#btn-share-2').addEventListener('click', openShare);
 $('#share-names').addEventListener('change', renderShare);
 $('#share-copy').addEventListener('click', async () => {
-  const box = $('#share-url');
   try {
-    await navigator.clipboard.writeText(box.value);
+    await navigator.clipboard.writeText($('#share-url').textContent);
     toast('Link copied.');
   } catch {
-    box.focus();
-    box.select();
-    toast('Press Ctrl+C (or Cmd+C) to copy.');
+    const range = document.createRange();
+    range.selectNodeContents($('#share-url'));
+    const sel = getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    toast('Link selected. Copy it from here.');
   }
 });
+$('#share-native').addEventListener('click', async () => {
+  try {
+    await navigator.share({ title: state.game.title || 'Tape Scope Review', url: $('#share-url').textContent });
+  } catch { /* cancelled */ }
+});
 
-document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => {
-  state.tab = t.dataset.tab;
-  if (state.tab === 'trim' && !selected() && clips().length) state.selectedId = clips()[0].id;
-  renderAll();
-}));
+$$('.tab').forEach((t) => t.addEventListener('click', () => setTab(t.dataset.tab)));
 
 $('#tab-clip').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-clip]');
   if (btn) addClip(btn.dataset.clip);
 });
 $('#btn-undo').addEventListener('click', undoLastClip);
-
-$('#clip-list').addEventListener('click', (e) => {
-  const item = e.target.closest('[data-id]');
-  if (!item) return;
-  state.tab = 'trim';
-  renderTabs();
-  selectClip(item.dataset.id);
+$('#btn-back').addEventListener('click', () => {
+  if (state.watchAt == null) return;
+  state.playing = null;
+  player.seek(state.watchAt);
+  player.play();
+  state.watchAt = null;
+  renderChrome();
 });
+
+const openFromEvent = (e) => {
+  const item = e.target.closest('[data-id]');
+  if (item) openClip(item.dataset.id);
+};
+$('#clip-list').addEventListener('click', openFromEvent);
+$('#tape').addEventListener('click', openFromEvent);
 
 const trimBox = $('#tab-trim');
 trimBox.addEventListener('click', (e) => {
   const el = e.target.closest('[data-act]');
   if (el) trimAction(el.dataset.act, el);
 });
+
+// Scrub bar: press or drag to move through the clip; it plays from where you let go.
+let scrubbing = null;
+const scrubTime = (e, clip) => {
+  const box = $('#scrub').getBoundingClientRect();
+  return clip.start + clamp01((e.clientX - box.left) / box.width) * (clip.end - clip.start);
+};
+trimBox.addEventListener('pointerdown', (e) => {
+  const bar = e.target.closest('#scrub');
+  const clip = selected();
+  if (!bar || !clip || !player.isReady()) return;
+  scrubbing = clip.id;
+  bar.setPointerCapture(e.pointerId);
+  state.playing = null;
+  player.seek(scrubTime(e, clip));
+});
+trimBox.addEventListener('pointermove', (e) => {
+  const clip = selected();
+  if (!scrubbing || !clip || clip.id !== scrubbing) return;
+  const t = scrubTime(e, clip);
+  player.seek(t);
+  renderScrub(t);
+});
+const endScrub = (e) => {
+  const clip = selected();
+  if (scrubbing && clip && clip.id === scrubbing && e.type === 'pointerup') playClip(clip, scrubTime(e, clip));
+  scrubbing = null;
+};
+trimBox.addEventListener('pointerup', endScrub);
+trimBox.addEventListener('pointercancel', endScrub);
+
 trimBox.addEventListener('input', (e) => {
   const field = e.target.dataset.field;
   const clip = selected();
   if (!field || !clip) return;
   clip[field] = e.target.value;
   changed();
-  if (field === 'title') renderList();
+  if (field === 'title') { renderList(); renderTape(); }
 });
 trimBox.addEventListener('change', (e) => {
   const clip = selected();
   if (!clip) return;
-  if (e.target.dataset.time) {
+  if (e.target.matches('[data-time]')) {
     const t = parseTime(e.target.value);
     if (t == null) {
       toast('Type a time like 12:34 or 1:02:15.');
-    } else if (e.target.dataset.time === 'start') {
-      setStart(clip, t, player.getDuration());
-      changed();
     } else {
-      setEnd(clip, t, player.getDuration());
+      if (state.edge === 'start') setStart(clip, t, player.getDuration());
+      else setEnd(clip, t, player.getDuration());
       changed();
     }
+    e.target.value = formatTime(clip[state.edge]);
     renderTimes();
   } else if (e.target.matches('[data-add-player]') && e.target.value !== '') {
     addPlayerToClip(Number(e.target.value));
@@ -541,7 +873,19 @@ trimBox.addEventListener('submit', (e) => {
   addPlayerToClip(parseInt(value, 10));
 });
 trimBox.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && e.target.dataset.time) e.target.blur();
+  if (e.key === 'Enter' && e.target.matches('[data-time]')) e.target.blur();
+  if (e.target.id === 'scrub' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+    const clip = selected();
+    if (!clip) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const t = Math.max(clip.start, Math.min(clip.end, player.getTime() + (e.key === 'ArrowLeft' ? -1 : 1)));
+    state.playing = null;
+    player.seek(t);
+  }
+});
+trimBox.addEventListener('focusin', (e) => {
+  if (e.target.matches('[data-time]')) e.target.select();
 });
 
 // Transport
@@ -556,10 +900,13 @@ function seekBy(seconds) {
   player.seek(player.getTime() + seconds);
 }
 $('#btn-play').addEventListener('click', togglePlay);
-document.querySelectorAll('[data-seek]').forEach((b) => b.addEventListener('click', () => seekBy(Number(b.dataset.seek))));
-document.querySelectorAll('[data-rate]').forEach((b) => b.addEventListener('click', () => {
+$$('[data-seek]').forEach((b) => b.addEventListener('click', () => seekBy(Number(b.dataset.seek))));
+$$('[data-rate]').forEach((b) => b.addEventListener('click', () => {
   player.setRate(Number(b.dataset.rate));
-  document.querySelectorAll('[data-rate]').forEach((x) => x.classList.toggle('active', x === b));
+  $$('[data-rate]').forEach((x) => {
+    x.classList.toggle('active', x === b);
+    x.setAttribute('aria-pressed', x === b);
+  });
 }));
 
 // Keyboard. Ignored while typing or while a dialog is open.
@@ -567,12 +914,17 @@ document.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   const t = e.target;
   if (t.matches && t.matches('input, textarea, select, [contenteditable]')) return;
-  if (document.querySelector('dialog[open]')) return;
+  if (document.querySelector('dialog[open]') || !state.game.source) return;
   const key = e.key.toLowerCase();
   if (state.tab === 'clip' && !e.repeat) {
     if (key === 'c') return addClip('');
     if (key === 'g') return addClip('good');
     if (key === 'f') return addClip('needs-work');
+  }
+  if (state.tab === 'trim' && !e.repeat && selected()) {
+    if (key === 'n') return step(1);
+    if (key === 'p') return step(-1);
+    if (key === 'r') return playClip(selected());
   }
   if (key === ' ' && !(t.matches && t.matches('button'))) { e.preventDefault(); togglePlay(); }
   else if (key === 'arrowleft') { e.preventDefault(); seekBy(-5); }
@@ -590,28 +942,25 @@ window.addEventListener('blur', () => {
 
 // ---------- start ----------
 
-function start() {
-  let game = localStore.load() || newGame();
+async function start() {
+  const saved = localStore.load() || newGame();
   let fromLink = null;
   try {
     fromLink = linkStore.load(location.hash);
   } catch (err) {
-    toast(err.message);
+    toast(err.message, { ms: 8000 });
   }
   if (location.hash) history.replaceState(null, '', location.pathname + location.search);
-  if (fromLink) {
-    const sameAsSaved = JSON.stringify(fromLink.clips) === JSON.stringify(game.clips);
-    if (!game.clips.length || sameAsSaved
-      || confirm('Open the shared game? It replaces the game saved in this browser. Cancel to keep yours.')) {
-      // A link without names keeps a roster already here for the same video.
-      if (!fromLink.roster.length && game.source && fromLink.source && game.source.id === fromLink.source.id) {
-        fromLink.roster = game.roster;
-      }
-      game = fromLink;
-      state.tab = game.clips.length ? 'trim' : 'clip';
-    }
+  setGame(saved);
+  if (!fromLink) return;
+  const same = JSON.stringify(fromLink.clips) === JSON.stringify(saved.clips);
+  if (!same && !(await okToReplace())) return;
+  // A link without names keeps a roster already here for the same video.
+  if (!fromLink.roster.length && saved.source && fromLink.source && saved.source.id === fromLink.source.id) {
+    fromLink.roster = saved.roster;
   }
-  setGame(game);
+  state.tab = fromLink.clips.length ? 'trim' : 'clip';
+  setGame(fromLink);
 }
 
 start();

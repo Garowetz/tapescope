@@ -2,86 +2,192 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Tape Scope Review</title>
   <meta name="description" content="Clip, trim and review hockey game video with your team.">
   <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="theme-color" content="#0a0c0f">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%235cb8ff'/%3E%3Ccircle cx='16' cy='16' r='8.5' fill='none' stroke='%23031525' stroke-width='2.2'/%3E%3Cpath d='M13.6 12.2v7.6l6.4-3.8z' fill='%23031525'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-  <header class="top">
-    <div class="brand">Tape Scope <span>Review</span></div>
-    <form id="url-form" class="url-form">
-      <input id="url-input" type="url" inputmode="url" autocomplete="off" placeholder="Paste a YouTube link" aria-label="YouTube link">
-      <button type="submit" class="btn primary">Load</button>
-    </form>
-    <div class="actions">
-      <button type="button" class="btn" id="btn-new">New game</button>
-      <button type="button" class="btn" id="btn-open">Open game</button>
-      <button type="button" class="btn" id="btn-save">Save game</button>
-      <button type="button" class="btn" id="btn-share">Share link</button>
-      <button type="button" class="btn" id="btn-roster">Load roster</button>
-      <button type="button" class="btn" id="btn-settings">Settings</button>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.2v13.6a.6.6 0 0 0 .9.5l11-6.8a.6.6 0 0 0 0-1l-11-6.8a.6.6 0 0 0-.9.5z" fill="currentColor" stroke="none"/></symbol>
+      <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8.5 5.5v13M15.5 5.5v13" stroke-width="3"/></symbol>
+      <symbol id="i-dots" viewBox="0 0 24 24"><g fill="currentColor" stroke="none"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></g></symbol>
+      <symbol id="i-chev-l" viewBox="0 0 24 24"><path d="M14.5 6l-6 6 6 6"/></symbol>
+      <symbol id="i-chev-r" viewBox="0 0 24 24"><path d="M9.5 6l6 6-6 6"/></symbol>
+      <symbol id="i-replay" viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 1 0 2.4-5.5"/><path d="M4.5 4.5V9H9"/></symbol>
+      <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5.5M6 11l6-6 6 6"/></symbol>
+      <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v13.5M6 13l6 6 6-6"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l.9 12.5h9.2L17.5 7M10 11v5M14 11v5"/></symbol>
+      <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 15V4M8 8l4-4 4 4M5 12.5v7h14v-7"/></symbol>
+      <symbol id="i-undo" viewBox="0 0 24 24"><path d="M8.5 6L4 10.5 8.5 15"/><path d="M4 10.5h9.5a5 5 0 0 1 0 10H11"/></symbol>
+      <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.5 7v11h17V9.5h-8.5l-2-2.5z"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M8 11l4 4 4-4M5 19.5h14"/></symbol>
+      <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8.5" r="3.2"/><path d="M3 19c.6-3.2 3-5 6-5s5.4 1.8 6 5M16 5.600a3.2 3.2 0 0 1 0 5.8M17.5 14.300c2 .7 3.2 2.3 3.6 4.7"/></symbol>
+      <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3A4 4 0 0 0 13 5.300l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 5.5v-1h-11v11h1"/></symbol>
+      <symbol id="i-back5" viewBox="0 0 24 24"><path d="M12 5a7.5 7.5 0 1 1-7.2 5.4"/><path d="M12 2.2L9.2 5 12 7.8"/><text x="12" y="15.4" text-anchor="middle" font-size="7.5" font-weight="700" font-family="system-ui, sans-serif" fill="currentColor" stroke="none">5</text></symbol>
+      <symbol id="i-fwd5" viewBox="0 0 24 24"><path d="M12 5a7.5 7.5 0 1 0 7.2 5.4"/><path d="M12 2.2L14.8 5 12 7.8"/><text x="12" y="15.4" text-anchor="middle" font-size="7.5" font-weight="700" font-family="system-ui, sans-serif" fill="currentColor" stroke="none">5</text></symbol>
+      <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4.5 19.5l1-4.2L16.2 4.600a1.7 1.7 0 0 1 2.400 0l.8.8a1.7 1.7 0 0 1 0 2.400L8.7 18.5z"/></symbol>
+      <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 3v18"/><path d="M12 4.5h7l-2 3 2 3h-7" /></symbol>
+      <symbol id="i-logo" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="var(--accent)" stroke="none"/><circle cx="16" cy="16" r="8.5" stroke="var(--accent-ink)" stroke-width="2.2"/><path d="M13.6 12.2v7.600l6.4-3.8z" fill="var(--accent-ink)" stroke="none"/></symbol>
+    </defs>
+  </svg>
+
+  <header class="bar">
+    <div class="brand">
+      <svg class="logo" aria-hidden="true"><use href="#i-logo"/></svg>
+      <span class="wordmark">Tape Scope</span>
     </div>
+    <label class="title-wrap" id="title-wrap" hidden><input id="game-title" class="title-input" type="text" placeholder="Name this game" aria-label="Game title" autocomplete="off"><svg class="i" aria-hidden="true"><use href="#i-pencil"/></svg></label>
+    <span class="bar-space"></span>
+    <button type="button" class="btn ghost" id="btn-share" aria-label="Share" hidden>
+      <svg class="i" aria-hidden="true"><use href="#i-share"/></svg><span class="btn-label">Share</span>
+    </button>
+    <button type="button" class="icon-btn" id="btn-menu" aria-label="Menu" aria-haspopup="dialog">
+      <svg class="i" aria-hidden="true"><use href="#i-dots"/></svg>
+    </button>
   </header>
 
-  <main class="layout">
-    <section class="stage">
-      <div class="player-wrap">
-        <div id="player"></div>
-        <div id="player-empty" class="player-empty">Paste a YouTube link above to start.</div>
+  <main>
+    <!-- Shown until a video is loaded -->
+    <section id="welcome" class="welcome">
+      <div class="welcome-inner">
+        <div class="hero-tape" aria-hidden="true"><i style="left:6%;width:9%"></i><i class="good" style="left:22%;width:7%"></i><i class="fix" style="left:38%;width:11%"></i><i class="teach" style="left:57%;width:6%"></i><i class="good" style="left:71%;width:8%"></i><i style="left:88%;width:7%"></i></div>
+        <h1>Review the game.<br><em>Coach the moments.</em></h1>
+        <p class="lede">Paste a YouTube link, clip the plays worth talking about, and walk your team through them.</p>
+        <form class="url-form">
+          <input type="url" inputmode="url" autocomplete="off" placeholder="Paste a YouTube link" aria-label="YouTube link">
+          <button type="submit" class="btn primary">Start clipping</button>
+        </form>
+        <button type="button" class="btn ghost outline" data-open-game><svg class="i" aria-hidden="true"><use href="#i-folder"/></svg>Open a saved game</button>
+        <ol class="steps">
+          <li><span class="step-n">1</span><div><strong>Clip it</strong><p>Watch the game once. Press one button right after something happens.</p></div></li>
+          <li><span class="step-n">2</span><div><strong>Trim</strong><p>Tighten each clip, tag the players and add your talking points.</p></div></li>
+          <li><span class="step-n">3</span><div><strong>Present</strong><p>Open Trim and step through your clips with Next. Use ¼× for slow motion.</p></div></li>
+        </ol>
+        <p class="fine">Nothing is uploaded. Your games stay in this browser and in files you keep.</p>
       </div>
-      <div class="transport">
-        <button type="button" class="btn" id="btn-play">Play / Pause</button>
-        <button type="button" class="btn" data-seek="-5">-5s</button>
-        <button type="button" class="btn" data-seek="5">+5s</button>
-        <span id="time" class="time">0:00</span>
-        <span class="spacer"></span>
-        <span class="rates" role="group" aria-label="Playback speed">
-          <button type="button" class="btn rate" data-rate="0.25">0.25x</button>
-          <button type="button" class="btn rate" data-rate="0.5">0.5x</button>
-          <button type="button" class="btn rate active" data-rate="1">1x</button>
-        </span>
-      </div>
-      <input id="game-title" class="game-title" type="text" placeholder="Game title, e.g. vs Guelph - Nov 15" aria-label="Game title">
-      <p id="roster-status" class="muted"></p>
     </section>
 
-    <aside class="panel">
-      <div class="tabs" role="tablist">
-        <button type="button" class="tab active" data-tab="clip" role="tab">1. Clip it</button>
-        <button type="button" class="tab" data-tab="trim" role="tab">2. Trim</button>
-      </div>
-
-      <div id="tab-clip" class="tab-body">
-        <button type="button" class="btn clip-main" data-clip="">Clip it <kbd>C</kbd></button>
-        <div class="clip-row">
-          <button type="button" class="btn clip-good" data-clip="good">Clip: Good <kbd>G</kbd></button>
-          <button type="button" class="btn clip-fix" data-clip="needs-work">Clip: Fix <kbd>F</kbd></button>
+    <div id="workspace" class="workspace" hidden>
+      <section class="stage">
+        <div class="player-wrap"><div id="player"></div></div>
+        <div class="transport">
+          <button type="button" class="icon-btn play" id="btn-play" aria-label="Play or pause">
+            <svg class="i i-play" aria-hidden="true"><use href="#i-play"/></svg>
+            <svg class="i i-pause" aria-hidden="true"><use href="#i-pause"/></svg>
+          </button>
+          <button type="button" class="icon-btn" data-seek="-5" aria-label="Back 5 seconds"><svg class="i big" aria-hidden="true"><use href="#i-back5"/></svg></button>
+          <button type="button" class="icon-btn" data-seek="5" aria-label="Forward 5 seconds"><svg class="i big" aria-hidden="true"><use href="#i-fwd5"/></svg></button>
+          <span class="time"><span id="time">0:00</span><span id="duration" class="dur"></span></span>
+          <span class="bar-space"></span>
+          <div class="seg rates" role="group" aria-label="Playback speed">
+            <button type="button" data-rate="0.25">¼×</button>
+            <button type="button" data-rate="0.5">½×</button>
+            <button type="button" data-rate="1" class="active">1×</button>
+          </div>
         </div>
-        <div class="clip-row">
-          <button type="button" class="btn" id="btn-undo" disabled>Undo last clip</button>
-          <span id="window-hint" class="muted"></span>
+      </section>
+
+      <aside class="panel">
+        <div class="seg mode" role="tablist">
+          <button type="button" class="tab active" data-tab="clip" role="tab">Clip</button>
+          <button type="button" class="tab" data-tab="trim" role="tab">Trim<span id="clip-count" class="badge" hidden></span></button>
         </div>
-      </div>
 
-      <div id="tab-trim" class="tab-body" hidden></div>
+        <div id="tab-clip" class="tab-body">
+          <div class="clip-buttons">
+            <button type="button" class="clip-main" data-clip=""><span>Clip it</span><small id="clip-window"></small><kbd>C</kbd></button>
+            <button type="button" class="clip-tag good" data-clip="good" aria-label="Clip: Good"><span class="dot"></span>Good<kbd>G</kbd></button>
+            <button type="button" class="clip-tag fix" data-clip="needs-work" aria-label="Clip: Fix"><span class="dot"></span>Fix<kbd>F</kbd></button>
+          </div>
+          <button type="button" class="btn soft" id="btn-back" hidden></button>
+          <div class="clip-foot">
+            <span id="clip-status" class="clip-status"></span>
+            <button type="button" class="btn ghost" id="btn-undo" hidden>
+              <svg class="i" aria-hidden="true"><use href="#i-undo"/></svg>Undo
+            </button>
+          </div>
+          <dl class="keys" aria-label="Keyboard shortcuts">
+            <div><dt><kbd>Space</kbd></dt><dd>Play or pause</dd></div>
+            <div><dt><kbd>←</kbd><kbd>→</kbd></dt><dd>Jump 5 seconds</dd></div>
+            <div><dt><kbd>C</kbd><kbd>G</kbd><kbd>F</kbd></dt><dd>Clip, Good, Fix</dd></div>
+          </dl>
+        </div>
 
-      <h2 class="list-head">Clips <span id="clip-count" class="muted"></span></h2>
-      <ol id="clip-list" class="clip-list"></ol>
-    </aside>
+        <div id="tab-trim" class="tab-body" hidden></div>
+      </aside>
+
+      <section class="clips">
+        <div class="clips-head"><h2>Clips</h2><span id="clips-sum" class="clips-sum"></span></div>
+        <div id="tape" class="tape" hidden></div>
+        <ol id="clip-list" class="clip-list"></ol>
+      </section>
+    </div>
   </main>
+
+  <dialog id="dlg-menu" class="dialog menu">
+    <div class="menu-list">
+      <button type="button" class="menu-item" id="btn-video" data-needs-video><svg class="i" aria-hidden="true"><use href="#i-link"/></svg><span><strong>Change video</strong></span></button>
+      <button type="button" class="menu-item" id="btn-roster"><svg class="i" aria-hidden="true"><use href="#i-users"/></svg><span><strong id="roster-label">Load roster</strong><small id="roster-status"></small></span></button>
+      <button type="button" class="menu-item" id="btn-settings"><svg class="i" aria-hidden="true"><use href="#i-sliders"/></svg><span><strong>Clip length</strong><small id="window-status"></small></span></button>
+      <hr>
+      <button type="button" class="menu-item" id="btn-save" data-needs-video><svg class="i" aria-hidden="true"><use href="#i-download"/></svg><span><strong>Save game file</strong><small>The reliable copy. Keep it with the coaches.</small></span></button>
+      <button type="button" class="menu-item" id="btn-open"><svg class="i" aria-hidden="true"><use href="#i-folder"/></svg><span><strong>Open game file</strong></span></button>
+      <button type="button" class="menu-item" id="btn-share-2" data-needs-video><svg class="i" aria-hidden="true"><use href="#i-share"/></svg><span><strong>Share link</strong></span></button>
+      <hr>
+      <button type="button" class="menu-item" id="btn-new" data-needs-video><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg><span><strong>New game</strong></span></button>
+    </div>
+    <p class="menu-foot">Autosaved in this browser as you work.</p>
+  </dialog>
+
+  <dialog id="dlg-clip" class="dialog menu clip-menu">
+    <div class="menu-list">
+      <button type="button" class="menu-item" data-clip-act="up"><svg class="i" aria-hidden="true"><use href="#i-up"/></svg><span><strong>Move earlier in the list</strong></span></button>
+      <button type="button" class="menu-item" data-clip-act="down"><svg class="i" aria-hidden="true"><use href="#i-down"/></svg><span><strong>Move later in the list</strong></span></button>
+      <button type="button" class="menu-item" data-clip-act="reset"><svg class="i" aria-hidden="true"><use href="#i-replay"/></svg><span><strong>Reset to default window</strong><small id="reset-hint"></small></span></button>
+      <hr>
+      <button type="button" class="menu-item danger" data-clip-act="delete"><svg class="i" aria-hidden="true"><use href="#i-trash"/></svg><span><strong>Delete clip</strong></span></button>
+    </div>
+  </dialog>
+
+  <dialog id="dlg-replace" class="dialog">
+    <div class="stack">
+      <h2>Replace the game on screen?</h2>
+      <p class="muted" id="replace-body"></p>
+      <div class="dialog-actions column">
+        <button type="button" class="btn primary" data-answer="save">Save a copy, then continue</button>
+        <button type="button" class="btn" data-answer="go">Continue without saving</button>
+        <button type="button" class="btn ghost" data-answer="">Cancel</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="dlg-video" class="dialog">
+    <form class="url-form stacked">
+      <h2>Change video</h2>
+      <p class="muted">Paste the YouTube link for the game.</p>
+      <input type="url" inputmode="url" autocomplete="off" placeholder="Paste a YouTube link" aria-label="YouTube link">
+      <div class="dialog-actions">
+        <button type="button" class="btn ghost" data-close>Cancel</button>
+        <button type="submit" class="btn primary">Load video</button>
+      </div>
+    </form>
+  </dialog>
 
   <dialog id="dlg-settings" class="dialog">
     <form method="dialog">
-      <h2>Settings</h2>
-      <p class="muted">How much video a new clip covers around the moment you press Clip it. Changing this only affects new clips.</p>
-      <label>Before the moment
-        <select id="set-before"></select>
-      </label>
-      <label>After the moment
-        <select id="set-after"></select>
-      </label>
+      <h2>Clip length</h2>
+      <p class="muted">How much video a new clip covers around the moment you press Clip it. Clips you already made don't change.</p>
+      <div class="field"><span>Before the moment</span><div class="seg wide" id="set-before"></div></div>
+      <div class="field"><span>After the moment</span><div class="seg wide" id="set-after"></div></div>
       <div class="dialog-actions"><button class="btn primary">Done</button></div>
     </form>
   </dialog>
@@ -89,13 +195,14 @@
   <dialog id="dlg-share" class="dialog">
     <form method="dialog">
       <h2>Share link</h2>
-      <p class="muted">Anyone with this link can see the clips and notes. The game file is still the reliable copy.</p>
-      <label class="check"><input type="checkbox" id="share-names"> Include player names (coaches only)</label>
-      <textarea id="share-url" readonly rows="4" aria-label="Share link"></textarea>
+      <p class="muted">One link that carries every clip and note. Anyone who has it can open it.</p>
+      <label class="switch"><input type="checkbox" id="share-names"><span class="track"></span><span><strong>Include player names</strong><small>Leave off unless it's going to coaches only.</small></span></label>
+      <div id="share-url" class="share-url" tabindex="0" aria-label="Share link"></div>
       <p id="share-info" class="muted"></p>
       <div class="dialog-actions">
-        <button type="button" class="btn primary" id="share-copy">Copy link</button>
-        <button class="btn">Close</button>
+        <button class="btn ghost">Close</button>
+        <button type="button" class="btn" id="share-native" hidden><svg class="i" aria-hidden="true"><use href="#i-share"/></svg>Share…</button>
+        <button type="button" class="btn primary" id="share-copy"><svg class="i" aria-hidden="true"><use href="#i-copy"/></svg>Copy link</button>
       </div>
     </form>
   </dialog>

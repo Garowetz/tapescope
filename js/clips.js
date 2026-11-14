@@ -11,8 +11,8 @@ export const END_PREVIEW = 3; // seconds replayed before the end after an end ch
 export const CATEGORIES = [
   { id: '', label: 'Untagged' },
   { id: 'good', label: 'Good' },
-  { id: 'needs-work', label: 'Needs work' },
-  { id: 'teaching', label: 'Teaching point' },
+  { id: 'needs-work', label: 'Fix' },      // "needs work"
+  { id: 'teaching', label: 'Teach' },      // "teaching point"
 ];
 
 export function categoryLabel(id) {
@@ -88,9 +88,18 @@ export function formatTime(seconds) {
   return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
 }
 
-// Accepts "754", "12:34" or "1:02:15". Returns seconds, or null if it can't be read.
+// Accepts "12:34", "1:02:15", or digits typed without colons ("1234" is 12:34,
+// "10215" is 1:02:15). One or two digits are plain seconds. Returns seconds, or
+// null if it can't be read.
 export function parseTime(text) {
-  const parts = String(text).trim().split(':');
+  const raw = String(text).trim();
+  if (/^\d{3,6}$/.test(raw)) {
+    const ss = +raw.slice(-2);
+    const mm = +raw.slice(-4, -2);
+    const hh = +raw.slice(0, -4) || 0;
+    if (ss < 60 && mm < 60) return hh * 3600 + mm * 60 + ss;
+  }
+  const parts = raw.split(':');
   if (parts.length < 1 || parts.length > 3) return null;
   let total = 0;
   for (const p of parts) {
