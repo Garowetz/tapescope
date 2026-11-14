@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tape Scope Review</title>
+  <meta name="description" content="Clip, trim and review hockey game video with your team.">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">Tape Scope <span>Review</span></div>
+    <form id="url-form" class="url-form">
+      <input id="url-input" type="url" inputmode="url" autocomplete="off" placeholder="Paste a YouTube link" aria-label="YouTube link">
+      <button type="submit" class="btn primary">Load</button>
+    </form>
+    <div class="actions">
+      <button type="button" class="btn" id="btn-new">New game</button>
+      <button type="button" class="btn" id="btn-open">Open game</button>
+      <button type="button" class="btn" id="btn-save">Save game</button>
+      <button type="button" class="btn" id="btn-share">Share link</button>
+      <button type="button" class="btn" id="btn-roster">Load roster</button>
+      <button type="button" class="btn" id="btn-settings">Settings</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="stage">
+      <div class="player-wrap">
+        <div id="player"></div>
+        <div id="player-empty" class="player-empty">Paste a YouTube link above to start.</div>
+      </div>
+      <div class="transport">
+        <button type="button" class="btn" id="btn-play">Play / Pause</button>
+        <button type="button" class="btn" data-seek="-5">-5s</button>
+        <button type="button" class="btn" data-seek="5">+5s</button>
+        <span id="time" class="time">0:00</span>
+        <span class="spacer"></span>
+        <span class="rates" role="group" aria-label="Playback speed">
+          <button type="button" class="btn rate" data-rate="0.25">0.25x</button>
+          <button type="button" class="btn rate" data-rate="0.5">0.5x</button>
+          <button type="button" class="btn rate active" data-rate="1">1x</button>
+        </span>
+      </div>
+      <input id="game-title" class="game-title" type="text" placeholder="Game title, e.g. vs Guelph - Nov 15" aria-label="Game title">
+      <p id="roster-status" class="muted"></p>
+    </section>
+
+    <aside class="panel">
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab active" data-tab="clip" role="tab">1. Clip it</button>
+        <button type="button" class="tab" data-tab="trim" role="tab">2. Trim</button>
+      </div>
+
+      <div id="tab-clip" class="tab-body">
+        <button type="button" class="btn clip-main" data-clip="">Clip it <kbd>C</kbd></button>
+        <div class="clip-row">
+          <button type="button" class="btn clip-good" data-clip="good">Clip: Good <kbd>G</kbd></button>
+          <button type="button" class="btn clip-fix" data-clip="needs-work">Clip: Fix <kbd>F</kbd></button>
+        </div>
+        <div class="clip-row">
+          <button type="button" class="btn" id="btn-undo" disabled>Undo last clip</button>
+          <span id="window-hint" class="muted"></span>
+        </div>
+      </div>
+
+      <div id="tab-trim" class="tab-body" hidden></div>
+
+      <h2 class="list-head">Clips <span id="clip-count" class="muted"></span></h2>
+      <ol id="clip-list" class="clip-list"></ol>
+    </aside>
+  </main>
+
+  <dialog id="dlg-settings" class="dialog">
+    <form method="dialog">
+      <h2>Settings</h2>
+      <p class="muted">How much video a new clip covers around the moment you press Clip it. Changing this only affects new clips.</p>
+      <label>Before the moment
+        <select id="set-before"></select>
+      </label>
+      <label>After the moment
+        <select id="set-after"></select>
+      </label>
+      <div class="dialog-actions"><button class="btn primary">Done</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-share" class="dialog">
+    <form method="dialog">
+      <h2>Share link</h2>
+      <p class="muted">Anyone with this link can see the clips and notes. The game file is still the reliable copy.</p>
+      <label class="check"><input type="checkbox" id="share-names"> Include player names (coaches only)</label>
+      <textarea id="share-url" readonly rows="4" aria-label="Share link"></textarea>
+      <p id="share-info" class="muted"></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn primary" id="share-copy">Copy link</button>
+        <button class="btn">Close</button>
+      </div>
+    </form>
+  </dialog>
+
+  <input type="file" id="file-game" accept=".json,application/json" hidden>
+  <input type="file" id="file-roster" accept=".csv,.json,text/csv,application/json" hidden>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="js/vendor/lz-string.min.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

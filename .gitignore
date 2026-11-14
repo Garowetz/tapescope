@@ -1,0 +1,11 @@
+# This repo is public and holds code only.
+# Game files and rosters contain kids' names and must never be committed.
+*.tapescope.json
+*.csv
+/games/
+/data/
+
+# Planning doc names real people; keep it local.
+PLAN.md
+
+.claude/
