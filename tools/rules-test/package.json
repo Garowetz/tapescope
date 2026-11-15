@@ -1,0 +1,13 @@
+{
+  "name": "tapescope-rules-test",
+  "private": true,
+  "type": "module",
+  "description": "Tests firestore.rules against the local emulator. Not part of the site.",
+  "scripts": {
+    "test": "firebase emulators:exec --config ../../firebase.json --only firestore --project demo-tapescope \"node --test rules.test.mjs\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "6.0.0",
+    "firebase": "13.1.0"
+  }
+}

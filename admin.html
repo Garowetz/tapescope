@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Teams · Tape Scope Review</title>
+  <meta name="robots" content="noindex">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="theme-color" content="#15181e">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%235cb8ff'/%3E%3Ccircle cx='16' cy='16' r='8.5' fill='none' stroke='%23031525' stroke-width='2.2'/%3E%3Cpath d='M13.6 12.2v7.6l6.4-3.8z' fill='%23031525'/%3E%3C/svg%3E">
+  <script>
+    try {
+      var t = localStorage.getItem('tapescope.theme');
+      document.documentElement.dataset.theme = ['dark', 'light', 'system'].indexOf(t) >= 0 ? t : 'dark';
+    } catch (e) { document.documentElement.dataset.theme = 'dark'; }
+  </script>
+  <link rel="stylesheet" href="css/styles.css?v=9">
+  <style>
+    body { background: var(--bg); color: var(--text); font-family: var(--body); }
+    .adm { max-width: 640px; margin: 0 auto; padding: 24px 16px calc(80px + env(safe-area-inset-bottom)); display: grid; gap: 20px; }
+    .adm h1, .adm h2 { font-family: var(--display); font-weight: 600; letter-spacing: 0.01em; margin: 0; }
+    .adm h1 { font-size: 2rem; }
+    .adm h2 { font-size: 1.35rem; }
+    .adm p { margin: 0; color: var(--text-2); line-height: 1.45; }
+    .adm .card { background: var(--s1); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 18px; display: grid; gap: 14px; }
+    .adm label { display: grid; gap: 6px; font-size: 0.92rem; color: var(--text-2); }
+    .adm .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .adm .row > input { flex: 1 1 200px; }
+    .adm .teams { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+    .adm .team { background: var(--s2); border-radius: var(--r); padding: 12px 14px; display: grid; gap: 8px; }
+    .adm .team-name { font-family: var(--display); font-size: 1.25rem; font-weight: 600; }
+    .adm .team-link { font-size: 0.88rem; color: var(--text-3); word-break: break-all; }
+    .adm .done { background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); border-radius: var(--r); padding: 14px; display: grid; gap: 8px; }
+    .adm .done code { font-size: 1rem; user-select: all; word-break: break-all; }
+    .adm .err { color: var(--danger); }
+    .adm .muted { color: var(--text-3); font-size: 0.88rem; }
+    .adm code.uid { user-select: all; background: var(--s3); padding: 2px 6px; border-radius: 6px; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <main class="adm">
+    <header class="row" style="justify-content: space-between">
+      <h1>Teams</h1>
+      <div class="row">
+        <span class="muted" id="who"></span>
+        <button class="btn ghost" id="sign-out" hidden>Sign out</button>
+      </div>
+    </header>
+
+    <p id="status">Loading…</p>
+
+    <section class="card" id="signin" hidden>
+      <p>This page is for the site owner. Sign in with Google to manage team logins.</p>
+      <div><button class="btn primary" id="google">Sign in with Google</button></div>
+    </section>
+
+    <section class="card" id="not-admin" hidden>
+      <h2>Not set up as admin yet</h2>
+      <p>This Google account's id is <code class="uid" id="my-uid"></code>. Put it in
+        <code>firestore.rules</code> in the admin list and deploy the rules.</p>
+    </section>
+
+    <section class="card" id="panel" hidden>
+      <h2>New team</h2>
+      <form id="new-team" class="card" style="padding: 0; border: 0; background: none">
+        <label>Team name
+          <input type="text" id="nt-name" required maxlength="40" autocomplete="off" placeholder="U13 A">
+        </label>
+        <label>Link name (letters, numbers and dashes)
+          <input type="text" id="nt-id" required maxlength="32" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="u13a">
+        </label>
+        <label>Team password (coaches share this)
+          <span class="row">
+            <input type="text" id="nt-pass" required minlength="8" autocomplete="off" autocapitalize="none" spellcheck="false">
+            <button class="btn outline" type="button" id="nt-gen">Make one</button>
+          </span>
+        </label>
+        <div><button class="btn primary" type="submit" id="nt-go">Create team</button></div>
+      </form>
+      <div class="done" id="made" hidden></div>
+      <p class="err" id="err" hidden></p>
+
+      <h2>Teams</h2>
+      <ul class="teams" id="teams"></ul>
+      <p class="muted">A new password makes a fresh login. Everyone signed in with the old
+        password loses access right away and has to sign in again.</p>
+    </section>
+  </main>
+  <script type="module" src="js/admin.js?v=9"></script>
+</body>
+</html>

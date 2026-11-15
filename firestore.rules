@@ -1,0 +1,43 @@
+rules_version = '2';
+
+// Tape Scope Review access rules.
+// - The admin (the project owner, by Google uid) can do anything.
+// - A team signs in with one shared login. That login's uid is stored on
+//   teams/{teamId}.uid, and it can read and write only that team's tree.
+// - teamLinks/{teamId} is readable by anyone who knows the team id, so the
+//   sign-in page can show the team's name and find its login. It holds no
+//   player data. Nobody but the admin can list or change it.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.uid in ['hhFOFIxSbRNiqkH5p4qMiPnbL1c2']; // the owner's Google uid (admin.html shows it)
+    }
+
+    function teamDoc(teamId) {
+      return /databases/$(database)/documents/teams/$(teamId);
+    }
+
+    function isTeam(teamId) {
+      return request.auth != null
+        && exists(teamDoc(teamId))
+        && get(teamDoc(teamId)).data.uid == request.auth.uid;
+    }
+
+    match /teamLinks/{teamId} {
+      allow get: if true;
+      allow list, write: if isAdmin();
+    }
+
+    match /teams/{teamId} {
+      allow get: if isAdmin() || isTeam(teamId);
+      allow list, write: if isAdmin();
+
+      // Games, clips, roster: everything under the team.
+      match /{sub}/{rest=**} {
+        allow read, write: if isAdmin() || isTeam(teamId);
+      }
+    }
+  }
+}

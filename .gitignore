@@ -9,3 +9,9 @@
 PLAN.md
 
 .claude/
+
+# Tooling installs and Firebase local files.
+node_modules/
+firebase-debug*.log
+firestore-debug.log
+.firebase/

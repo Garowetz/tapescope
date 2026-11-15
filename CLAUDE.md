@@ -59,6 +59,19 @@ coach names on clips (`clip.by`, Settings > Your name, `tapescope.coach`) and me
 another coach's game file. Next in `PLAN.md` is Phase 3, drawing on a paused clip;
 the owner also wants real shared team accounts (Firebase was suggested) later.
 
+## Team accounts (Firebase, in progress)
+
+- Firebase project `tapescope-a26f3` under the owner's Gmail (Spark plan, Firestore
+  in Montreal). Web config in `js/storage/firebase-config.js` is public by design.
+- The app talks to teams only through `js/storage/team.js`; `js/storage/firebase.js`
+  is the only file that imports Firebase (SDK 13.1.0 from gstatic, loaded lazily).
+- One shared login per team (`{teamId}.{n}@teams.tapescope.invalid`), made from
+  `admin.html` by the owner signed in with Google. A new password makes login n+1.
+- `firestore.rules` holds the owner's Google uid as admin. Test with
+  `npm --prefix tools/rules-test test` (needs Java 21 on PATH). Deploy with
+  `firebase deploy --only firestore:rules`, or paste into the console Rules tab.
+- Test team `test-team` exists; use made-up names only.
+
 ## Releasing
 
 Every file link carries `?v=N` (in `index.html` and every relative `import`), so a
