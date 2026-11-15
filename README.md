@@ -37,39 +37,30 @@ any speed. On a phone the speeds sit behind one button that shows the current sp
 If you peek at a clip mid-game, the Review tab shows **Back to where I was** so
 you can pick the game up again.
 
+Your clips are listed under **Clip it**, with a coloured strip of the whole game
+(under the video on an iPad held sideways or a computer). **Sort** puts them in
+order by **game time**, **category** (Good, Fix, Teach) or **player number**. The
+new order is used everywhere, presenting included, and **Undo** puts it back.
+
 ### 2. Clips (afterward)
 
-There are two versions of this tab for now, **Clips A** and **Clips B**, to try
-two ways of trimming. Both edit the same clips; use whichever feels better.
+Switch to the **Clips** tab, or tap any clip in the list or on the game strip.
+The top of the tab picks the clip: the **arrows** step through them (keys **P / N**)
+and the box between them lists every clip by number and title. **Replay** (key **R**)
+plays the clip again.
 
-Switch to a Clips tab, or tap any clip in the list or on the coloured game strip.
-
-**Clips A:**
-
-- **Prev / Replay / Next** (keys **P / R / N**) step through the clips. Each one
-  plays from its start to its end and then pauses.
-- Tap **Start** or **End** to choose which end you are adjusting.
-- **Set start here / Set end here** uses the spot the video is paused at.
-- The **-5s -1s +1s +5s** buttons nudge that end. You can also tap the time and
-  type one, like `12:34` or `1234`.
-- The bar above shows the clip; the white line is where you pressed Clip it.
-  Tap or drag the bar to move around inside the clip.
-- Add a **title**, **talking points**, a **category** (Good, Fix, Teach) and the
-  **players** involved.
-- The **three dots** beside the clip number hold Move earlier, Move later,
-  **Reset to default window** and Delete. A deleted clip can be undone for a few
-  seconds.
-
-**Clips B** works like a video editor. The clip is the blue stretch on a timeline
-that also shows some video either side of it.
+The clip is the blue stretch on a timeline that also shows some video either side.
 
 - The start and end times sit on the timeline, above the clip's two handles.
-  Tap a time to type a new one.
+  Tap a time to type a new one, like `12:34` or `1234`.
 - Drag a handle to move that end; the video shows the frame under your finger.
 - Tap anywhere else on the timeline to watch from there, even past the end.
 - Start buttons are on the left (**-5s +5s -1s +1s** and **Set start here**), end
   buttons on the right. Left-hand buttons move earlier, right-hand ones later.
-- Title, talking points, category and players are the same as Clips A.
+- Add a **title**, **talking points**, a **category** (Good, Fix, Teach) and the
+  **players** involved.
+- The **three dots** hold Move earlier, Move later, **Reset to default window**
+  and Delete. A deleted clip can be undone for a few seconds.
 
 ### 3. Present (to the team)
 

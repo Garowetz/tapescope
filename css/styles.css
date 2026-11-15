@@ -379,8 +379,13 @@ body.has-video .wordmark { color: var(--text-2); }
 @media (max-width: 1023px) { .keys { display: none; } }
 
 /* Clip list and game tape */
-.clips { display: grid; gap: 12px; padding: 8px 12px calc(28px + env(safe-area-inset-bottom)); min-width: 0; align-content: start; }
-.clips-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+/* The clip list sits in the Review tab, under Clip it. */
+.clips { display: grid; gap: 10px; min-width: 0; align-content: start; padding-top: 12px; border-top: 1px solid var(--line); }
+.clips-head { display: flex; align-items: center; gap: 10px; min-height: var(--tap); }
+.clips-head h2 { margin: 0; }
+.sort-btn { padding: 0 12px; gap: 6px; }
+.stage .tape { margin-top: 6px; }
+.menu-note { margin: 4px 12px 8px; color: var(--text-3); font-size: 0.85rem; }
 .clips-sum { color: var(--text-3); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
 .tape { position: relative; height: 44px; }
 .tape::before { content: ""; position: absolute; left: 0; right: 0; top: 16px; height: 12px; border-radius: 6px; background: var(--s3); }
@@ -425,38 +430,30 @@ body.has-video .wordmark { color: var(--text-2); }
 .ed-head { display: flex; align-items: center; gap: 6px; min-height: var(--tap); }
 .ed-head .boxed { background: var(--s3); color: var(--text); border: 1px solid var(--line); }
 .ed-head .boxed:hover { background: var(--s4); }
-.ed-title { display: grid; justify-items: center; min-width: 76px; padding: 0 4px; font: 700 1.35rem/1 var(--display); letter-spacing: 0.03em; text-transform: uppercase; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.ed-title b { font-weight: 700; }
-.ed-title span { color: var(--text-3); font-weight: 600; }
-.ed-title small { color: var(--text-3); font: 500 0.78rem/1.3 var(--body); letter-spacing: 0; text-transform: none; }
-.ed-head .btn { padding: 0 14px; }
-
-.scrub-wrap { display: grid; }
-.scrub { position: relative; height: 44px; cursor: pointer; touch-action: none; border-radius: 6px; }
-.scrub::before { content: ""; position: absolute; left: 0; right: 0; top: 16px; height: 12px; border-radius: 6px; background: var(--s3); }
-.scrub-fill { position: absolute; left: 0; top: 16px; height: 12px; width: 0; min-width: 12px; border-radius: 6px; background: var(--c, var(--accent)); }
-.scrub-mark { position: absolute; top: 9px; width: 3px; height: 26px; margin-left: -1.5px; border-radius: 2px; background: var(--text); box-shadow: 0 0 0 2px var(--bg); }
-.scrub-cap { position: relative; height: 16px; margin-top: -6px; }
-.scrub-cap span { position: absolute; transform: translateX(-50%); color: var(--text-3); font-size: 0.75rem; white-space: nowrap; }
-
-.edges { display: grid; gap: 10px; padding: 10px; background: var(--inset); border-radius: var(--r-lg); }
-.edge-pick button, .edge-on { display: grid; gap: 1px; justify-items: center; align-content: center; min-height: 64px; padding: 6px; border-radius: 9px; }
-.edge-on { background: var(--seg-on); color: var(--text); box-shadow: var(--seg-on-shadow), inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); cursor: text; }
-.edge-pick .label { font-size: 0.8rem; color: inherit; opacity: 0.75; }
-.edge-pick b, .edge-on input[type="text"] { font: 700 1.7rem/1 var(--display); letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
-.edge-on input[type="text"] {
-  width: 100%; min-height: 34px; padding: 2px; text-align: center; background: transparent; border: 1px solid transparent; border-radius: 7px;
+/* The clip picker: "3: Nice breakout". */
+.ed-title { flex: 1 1 auto; display: grid; min-width: 0; }
+.ed-title select {
+  height: var(--tap); min-height: 0; padding: 0 34px 0 12px; background-position: right 8px center;
+  background-color: var(--s3); border-color: var(--line);
+  font: 700 1.25rem/1 var(--display); letter-spacing: 0.02em; font-variant-numeric: tabular-nums;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.edge-on input[type="text"]:focus { background: var(--bg); border-color: var(--accent); }
-.edges .seg { background: var(--bg); }
-.edge-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; align-items: center; }
+.ed-head .btn { padding: 0 14px; }
+/* In a narrow rail (an iPad on its side, a phone on its side) the picker gets the
+   arrows' row to itself, and Replay and the menu drop to a row underneath. */
+.ed-timing { container-type: inline-size; }
+@container (max-width: 330px) {
+  .ed-head { display: grid; grid-template-columns: var(--tap) minmax(0, 1fr) var(--tap); }
+  .ed-head .ed-replay { grid-column: 1 / 3; justify-self: start; width: auto !important; padding: 0 14px !important; }
+  .ed-head .ed-replay .btn-label { display: inline !important; }
+}
+
 .nudge {
   height: var(--tap); padding: 0; background: transparent; border: 1px solid var(--line-2); border-radius: 10px;
   color: var(--text-2); font-weight: 600; font-size: 0.9rem; font-variant-numeric: tabular-nums;
   transition: background 0.15s, color 0.15s;
 }
 .nudge:hover { background: var(--s3); color: var(--text); }
-.edge-help { color: var(--text-3); font-size: 0.84rem; text-align: center; }
 
 .field { display: grid; gap: 6px; }
 .cats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
@@ -620,7 +617,7 @@ body.has-video .wordmark { color: var(--text-2); }
   .tab-body { padding: 12px; }
   .tl { margin: 0 16px; }
   .tl-flags { height: 36px; }
-  .editor-b .ed-timing { gap: 7px; }
+  .ed-timing { gap: 7px; }
   .tl-scale { margin-top: 2px; }
   .tl-flag { min-height: 34px; padding-top: 3px; }
   .tl-flag b { font-size: 1.2rem; }
@@ -630,14 +627,11 @@ body.has-video .wordmark { color: var(--text-2); }
   .tl-side .label { display: none; }
   .tl-side.start { box-shadow: inset 3px 0 0 var(--accent); padding-left: 9px; }
   .tl-side.end { box-shadow: inset -3px 0 0 var(--accent); padding-right: 9px; }
-  .editor, .ed-timing { gap: 10px; }
-  .edges { gap: 8px; padding: 8px; }
-  .edge-pick button, .edge-on { min-height: 56px; }
-  .edge-help, .scrub-cap { display: none; }
+  .editor { gap: 10px; }
   .transport { padding: 6px 10px; }
   .ed-replay { width: var(--tap); padding: 0 !important; }
   .ed-replay .btn-label { display: none; }
-  .ed-title { min-width: 0; }
+  .ed-title select { font-size: 1.12rem; padding-left: 10px; }
   body.has-video .wordmark { display: none; }
   #btn-share .btn-label, #btn-present .btn-label { display: none; }
   #btn-share, #btn-present { padding: 0; width: var(--tap); }
@@ -656,7 +650,6 @@ body.has-video .wordmark { color: var(--text-2); }
   .transport { padding: 8px 0 0; gap: 4px; }
   .panel { padding: 0; }
   .tab-body { padding: 18px 16px; }
-  .clips { padding: 0 0 28px; }
   .clip-list { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
   .steps { grid-template-columns: repeat(3, 1fr); gap: 28px; }
   .steps li { flex-direction: column; gap: 10px; }
@@ -690,18 +683,20 @@ body.has-video .wordmark { color: var(--text-2); }
 @media (min-width: 1024px) {
   .workspace {
     grid-template-columns: minmax(0, 1fr) clamp(340px, 26vw, 420px);
-    grid-template-areas: "stage panel" "clips panel";
-    grid-template-rows: auto 1fr; column-gap: 24px;
+    grid-template-areas: "stage panel";
+    grid-template-rows: minmax(0, 1fr); column-gap: 24px;
   }
-  /* The workspace is exactly the window height: the video never scrolls away, the
-     clip list and the rail's card scroll inside themselves. */
+  /* The workspace is exactly the window height: the video never scrolls away, and
+     the rail's card (clip list included) scrolls inside itself. */
   .workspace { height: calc(100dvh - 57px); padding-bottom: 16px; }
-  .stage { grid-area: stage; }
-  .player-wrap { width: clamp(55%, calc((100dvh - 57px - 36px - 56px - 160px) * 16 / 9), 100%); margin-inline: auto; }
-  .clips { grid-area: clips; min-height: 0; overflow-y: auto; padding: 0 4px 8px 0; scrollbar-width: thin; }
-  .clips-head { position: sticky; top: 0; z-index: 1; background: var(--bg); padding-bottom: 4px; }
+  .stage { grid-area: stage; align-content: start; }
+  .player-wrap { width: clamp(55%, calc((100dvh - 57px - 36px - 56px - 56px) * 16 / 9), 100%); margin-inline: auto; }
   .panel { grid-area: panel; min-height: 0; height: 100%; }
-  .tab-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+  /* Room under the last thing in the card, so it can scroll up clear of the
+     iPad's home bar instead of sitting on the screen's edge. */
+  .tab-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; padding-bottom: calc(110px + env(safe-area-inset-bottom)); }
+  #tab-clip .clips { flex: none; }
+  .clip-list { grid-template-columns: minmax(0, 1fr); }
   #tab-clip { display: flex; flex-direction: column; gap: 12px; }
   #tab-clip .keys { margin-top: auto; }
   .clip-main { min-height: 180px; }
@@ -712,9 +707,8 @@ body.has-video .wordmark { color: var(--text-2); }
 /* iPad on its side (and small laptops): a slimmer rail so the video gets the room. */
 @media (min-width: 1024px) and (max-width: 1279px) {
   .workspace { grid-template-columns: minmax(0, 1fr) 320px; column-gap: 16px; padding: 12px 16px; }
-  .player-wrap { width: clamp(55%, calc((100dvh - 57px - 24px - 56px - 130px) * 16 / 9), 100%); }
-  .tab { min-height: 48px; padding: 0 8px; gap: 6px; font-size: 1.12rem; }
-  .tab-body { padding: 14px 12px; }
+  .player-wrap { width: clamp(55%, calc((100dvh - 57px - 24px - 56px - 56px) * 16 / 9), 100%); }
+  .tab-body { padding: 14px 12px calc(110px + env(safe-area-inset-bottom)); }
   .clip-main { min-height: 140px; }
   .clip-main span { font-size: 2.8rem; }
   .ed-replay { width: var(--tap); padding: 0 !important; }
@@ -735,9 +729,8 @@ body.has-video .wordmark { color: var(--text-2); }
   .panel { padding: 0; height: auto; }
   .tab { min-height: 44px; padding: 0 6px; gap: 5px; font-size: 1.05rem; white-space: nowrap; }
   .tab-body { padding: 10px; }
-  .ed-title { min-width: 0; }
-  .ed-title b span { display: none; } /* "Clip 3", without "of 12" */
   .ed-head { gap: 4px; }
+  .ed-title select { font-size: 1.05rem; padding: 0 28px 0 8px; background-position: right 4px center; }
   .ed-replay { width: var(--tap); padding: 0 !important; }
   .ed-replay .btn-label, .ed-replay kbd { display: none; }
   .tl { margin: 0 16px; }
@@ -746,12 +739,17 @@ body.has-video .wordmark { color: var(--text-2); }
   .tl-side.start { box-shadow: inset 3px 0 0 var(--accent); padding-left: 9px; }
   .tl-side.end { box-shadow: inset -3px 0 0 var(--accent); padding-right: 9px; }
   .tl-sides { gap: 6px; }
-  .clips { padding: 14px 0 20px; }
   .clip-list { grid-template-columns: minmax(0, 1fr); }
   .clip-main { min-height: 120px; }
   .clip-main span { font-size: 2.4rem; }
   .editor { grid-template-columns: minmax(0, 1fr); gap: 10px; }
-  .edge-help, .scrub-cap { display: none; }
+}
+
+/* Pages that scroll as a whole (phones, an upright iPad): room under the last
+   thing on the page, so it can scroll up clear of the screen's bottom edge and
+   the iPhone or iPad home bar. */
+@media (max-width: 1023px), (orientation: landscape) and (max-height: 520px) {
+  .panel { padding-bottom: calc(110px + env(safe-area-inset-bottom)); }
 }
 
 /* ---------- team roster page ---------- */

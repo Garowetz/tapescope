@@ -5,7 +5,7 @@
 // link.js   share link in the URL hash
 // A team Google Sheet adapter (Phase 5) slots in beside these.
 
-import { normalizeGame } from '../game.js?v=8';
+import { normalizeGame } from '../game.js?v=9';
 
 const KEY = 'tapescope.game';
 

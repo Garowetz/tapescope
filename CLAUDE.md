@@ -30,10 +30,10 @@ them to the team. Never call it "Film Room"; that was the working name.
   blue), category colours green / orange / lavender.
   Barlow Condensed (self-hosted in `fonts/`) for headings, numbers and labels;
   system font for body text.
-- Tabs are **Review** (watch and clip, `data-tab="clip"`), **Clips A** (edit,
-  `data-tab="trim"`) and **Clips B** (`data-tab="trimb"`, a video-editor style
-  trim timeline being A/B tested against A). Both Clips tabs render into `#tab-trim`;
-  `state.editTab` remembers the last one. When the owner picks one, delete the other.
+- Tabs are **Review** (watch and clip, `data-tab="clip"`, with the clip list and
+  Sort under Clip it) and **Clips** (the trim timeline editor, `data-tab="trim"`,
+  rendered into `#tab-trim`, with a clip picker select). Clips A was dropped
+  2026-11-15. On wide screens JS moves the game strip `#tape` under the video.
 - The team roster page (`js/team.js`) lays the roster out as 2 G, 3 D pairs, 3
   forward lines, plus extras (`SLOTS` in `js/roster.js`). The roster keeps lineup
   order (it is not sorted); sort by number only where it is displayed as a list.
@@ -66,7 +66,7 @@ browser never mixes old and new modules after a deploy (GitHub Pages caches for
 10 minutes, and a mix breaks the app at load). Bump N everywhere on each release:
 
 ```bash
-grep -rl "?v=8" index.html js | xargs sed -i 's/?v=8/?v=9/g'
+grep -rl "?v=9" index.html js | xargs sed -i 's/?v=9/?v=10/g'
 ```
 
 ## Running and testing

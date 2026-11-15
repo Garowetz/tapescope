@@ -5,15 +5,15 @@ import {
   BEFORE_OPTIONS, AFTER_OPTIONS, NUDGE_STEPS, CATEGORIES, END_PREVIEW,
   normalizeSettings, createClip, resetWindow, setStart, setEnd,
   formatTime, parseTime, categoryLabel,
-} from './clips.js?v=8';
-import { newGame } from './game.js?v=8';
-import { parseRosterText, playerLabel, loadTeam, saveTeam } from './roster.js?v=8';
-import { createRosterPage } from './team.js?v=8';
-import { createYouTubePlayer, parseYouTubeUrl } from './players/youtube.js?v=8';
-import { localStore } from './storage/local.js?v=8';
-import { fileStore } from './storage/file.js?v=8';
-import { linkStore, LONG_LINK } from './storage/link.js?v=8';
-import { createPresenter } from './present.js?v=8';
+} from './clips.js?v=9';
+import { newGame } from './game.js?v=9';
+import { parseRosterText, playerLabel, loadTeam, saveTeam } from './roster.js?v=9';
+import { createRosterPage } from './team.js?v=9';
+import { createYouTubePlayer, parseYouTubeUrl } from './players/youtube.js?v=9';
+import { localStore } from './storage/local.js?v=9';
+import { fileStore } from './storage/file.js?v=9';
+import { linkStore, LONG_LINK } from './storage/link.js?v=9';
+import { createPresenter } from './present.js?v=9';
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => [...document.querySelectorAll(sel)];
@@ -34,9 +34,7 @@ const AWAY_SECONDS = 5;      // how far the video must have moved to offer "back
 const state = {
   game: newGame(),
   settings: loadSettings(),
-  tab: 'clip',
-  editTab: 'trim',   // the clip editor last used: 'trim' (Clips A) or 'trimb' (Clips B, being tried out)
-  edge: 'start',     // which end of the clip the trim controls act on
+  tab: 'clip',       // 'clip' (Review) or 'trim' (Clips)
   selectedId: null,
   undoStack: [],     // ids of clips made this sitting, newest last
   playing: null,     // { id, entered } while a clip is playing to its end
@@ -44,10 +42,10 @@ const state = {
   newSinceTrim: false,
   watchAt: null,     // where the coach was in the game when they left the Clip tab
   duration: 0,
-  view: null,        // Clips B: { id, from, to } the stretch of game the trim timeline shows
-  drag: null,        // Clips B: { edge } while a start or end handle is being dragged
+  view: null,        // { id, from, to } the stretch of game the trim timeline shows
+  drag: null,        // { edge } while a start or end handle is being dragged
 };
-const isEditTab = (tab = state.tab) => tab === 'trim' || tab === 'trimb';
+const isEditTab = (tab = state.tab) => tab === 'trim';
 
 const player = createYouTubePlayer($('#player'));
 
@@ -61,7 +59,7 @@ const presenter = createPresenter({
   toast: (msg) => toast(msg),
   onExit: () => {
     // Come back to the clip you finished on.
-    if (clips().length) state.tab = state.editTab;
+    if (clips().length) state.tab = 'trim';
     renderAll();
   },
 });
@@ -355,7 +353,6 @@ function setTab(tab, { cue = true } = {}) {
   if (state.tab === 'clip' && player.isReady() && player.getTime() > 1) state.watchAt = player.getTime();
   const wasEditing = isEditTab();
   state.tab = tab;
-  if (isEditTab(tab)) state.editTab = tab;
   if (isEditTab(tab) && !wasEditing) {
     if (clips().length && (state.newSinceTrim || !selected())) state.selectedId = clips()[0].id;
     state.newSinceTrim = false;
@@ -405,6 +402,7 @@ function renderChrome() {
     count.textContent = clips().length;
   });
 
+  $('#btn-sort').hidden = clips().length < 2;
   const total = clips().reduce((sum, c) => sum + (c.end - c.start), 0);
   $('#clips-sum').textContent = clips().length
     ? `${clips().length} clip${clips().length === 1 ? '' : 's'} · ${formatTime(total)} of video`
@@ -480,66 +478,39 @@ function renderEditor() {
   const index = clips().indexOf(clip);
   const first = index === 0;
   const last = index === clips().length - 1;
-  const b = state.tab === 'trimb';
+  const options = clips().map((c, i) => `<option value="${esc(c.id)}"${c === clip ? ' selected' : ''}>${esc(pickLabel(c, i))}</option>`).join('');
 
   box.innerHTML = `
-    <div class="editor cat-${esc(clip.category)}${b ? ' editor-b' : ''}">
+    <div class="editor cat-${esc(clip.category)}">
       <div class="ed-timing">
         <div class="ed-head">
           <button type="button" class="icon-btn boxed" data-act="prev" aria-label="Previous clip (P)" ${first ? 'disabled' : ''}>${icon('chev-l')}</button>
-          <div class="ed-title"><b>Clip ${index + 1} <span>of ${clips().length}</span></b><small id="ed-meta"></small></div>
+          <div class="ed-title">
+            <select id="ed-pick" data-pick aria-label="Clip ${index + 1} of ${clips().length}, pick another">${options}</select>
+          </div>
           <button type="button" class="icon-btn boxed" data-act="next" aria-label="Next clip (N)" ${last ? 'disabled' : ''}>${icon('chev-r')}</button>
-          <span class="bar-space"></span>
           <button type="button" class="btn ed-replay" data-act="replay" aria-label="Replay clip (R)">${icon('replay')}<span class="btn-label">Replay</span><kbd>R</kbd></button>
           <button type="button" class="icon-btn" data-act="more" aria-label="More for this clip: reorder, reset, delete" aria-haspopup="dialog">${icon('dots')}</button>
         </div>
-        ${b ? timingB(clip) : timingA(clip)}
+        ${timing(clip)}
       </div>
       ${editorDetails(clip)}
     </div>`;
   renderTimes();
 }
 
-// Clips A: pick Start or End, then one row of nudge buttons acts on it.
-function timingA(clip) {
-  const edge = state.edge;
-  const edgeWord = edge === 'start' ? 'Start' : 'End';
-  const nudge = (n) => {
-    const word = `${edgeWord} ${Math.abs(n)} second${Math.abs(n) === 1 ? '' : 's'} ${n < 0 ? 'earlier' : 'later'}`;
-    return `<button type="button" class="nudge" data-act="nudge" data-by="${n}" aria-label="${word}">${n < 0 ? '−' : '+'}${Math.abs(n)}s</button>`;
-  };
-  // The active end shows its time as a field you can type in; the other is a button.
-  const pick = (name, label) => (edge === name
-    ? `<label class="edge-on"><span class="label">${label}</span>
-         <input type="text" inputmode="numeric" id="ed-time" data-time value="${formatTime(clip[name])}" aria-label="${label} time, type to change">
-       </label>`
-    : `<button type="button" data-act="edge" data-edge="${name}" aria-label="Adjust the ${name}, ${formatTime(clip[name])}">
-         <span class="label">${label}</span><b id="seg-${name}">${formatTime(clip[name])}</b>
-       </button>`);
-  return `
-        <div class="scrub-wrap">
-          <div class="scrub" id="scrub" role="slider" tabindex="0" aria-label="Position in this clip" aria-valuemin="0" aria-valuemax="${clip.end - clip.start}" aria-valuenow="0">
-            <div class="scrub-fill" id="scrub-fill"></div><div class="scrub-mark" id="scrub-mark"></div>
-          </div>
-          <div class="scrub-cap"><span id="scrub-cap">you clipped here</span></div>
-        </div>
-        <div class="edges">
-          <div class="seg wide edge-pick" role="group" aria-label="Which end to adjust">
-            ${pick('start', 'Start')}
-            ${pick('end', 'End')}
-          </div>
-          <div class="edge-row">
-            ${NUDGE_STEPS.map(nudge).join('')}
-          </div>
-          <button type="button" class="btn primary" data-act="set-here">${icon('pin')}Set ${edge} here</button>
-          <p class="edge-help">Pause where the clip should ${edge}, then tap Set ${edge} here.</p>
-        </div>`;
+// "3: Nice breakout", or "3: Untitled · 12:34" while it has no title.
+const pickLabel = (c, i) => `${i + 1}: ${c.title.trim() || `Untitled · ${formatTime(c.start)}`}`;
+function renderPickLabel() {
+  const clip = selected();
+  const opt = $('#ed-pick option:checked');
+  if (clip && opt) opt.textContent = pickLabel(clip, clips().indexOf(clip));
 }
 
-// Clips B: a trim timeline like a video editor. The clip is the blue stretch
-// between two handles, with its start and end times on the handles. Start
-// controls sit on the left, end controls on the right.
-function timingB(clip) {
+// A trim timeline like a video editor. The clip is the blue stretch between two
+// handles, with its start and end times on the handles. Start controls sit on the
+// left, end controls on the right.
+function timing(clip) {
   const side = (edge) => {
     const word = edge === 'start' ? 'Start' : 'End';
     // Left column moves earlier, right column later, like the timeline above.
@@ -605,7 +576,7 @@ function editorDetails(clip) {
       </div>`;
 }
 
-// The stretch of game the Clips B timeline shows: the clip plus some video either
+// The stretch of game the trim timeline shows: the clip plus some video either
 // side, so there is room to drag a handle out. It holds still while you work on a
 // clip (so you can see a handle move), and only widens when an edge gets near its end.
 function timelineView(clip) {
@@ -628,19 +599,7 @@ function renderTimes() {
   if (!clip) return;
   set('#seg-start', formatTime(clip.start));
   set('#seg-end', formatTime(clip.end));
-  set('#ed-meta', `${clip.end - clip.start}s long${clip.by ? ` · ${clip.by}` : ''}`);
-  const input = $('#ed-time');
-  if (input && document.activeElement !== input) input.value = formatTime(clip[state.edge]);
-  const mark = $('#scrub-mark');
-  const cap = $('#scrub-cap');
-  if (mark && cap) {
-    const at = (clip.mark - clip.start) / (clip.end - clip.start);
-    const off = at < 0 || at > 1;
-    mark.hidden = off;
-    cap.hidden = off;
-    mark.style.left = `${at * 100}%`;
-    cap.style.left = `clamp(46px, ${at * 100}%, calc(100% - 46px))`;
-  }
+  renderPickLabel();
   renderTimeline();
   renderScrub(player.getTime());
   renderList();
@@ -668,7 +627,7 @@ function renderTimeline() {
   m.style.left = `${pct(clip.mark)}%`;
   $('#tl-from').textContent = formatTime(v.from);
   $('#tl-to').textContent = formatTime(v.to);
-  $('#tl-len').textContent = `${clip.end - clip.start}s clip`;
+  $('#tl-len').textContent = `${clip.end - clip.start}s clip${clip.by ? ` · ${clip.by}` : ''}`;
 
   // Tick every 5 seconds (10 or 30 on a long view), taller each minute.
   const every = span > 240 ? 30 : span > 100 ? 10 : 5;
@@ -701,13 +660,6 @@ function renderScrub(t) {
     head.hidden = t < v.from || t > v.to;
     head.style.left = `${clamp01((t - v.from) / (v.to - v.from)) * 100}%`;
   }
-  const fill = $('#scrub-fill');
-  if (!fill) return;
-  const at = clamp01((t - clip.start) / (clip.end - clip.start));
-  fill.style.width = `${at * 100}%`;
-  const bar = $('#scrub');
-  bar.setAttribute('aria-valuenow', Math.round(at * (clip.end - clip.start)));
-  bar.setAttribute('aria-valuetext', formatTime(clip.start + at * (clip.end - clip.start)));
 }
 
 function selectClip(id, { play = true } = {}) {
@@ -728,7 +680,7 @@ function step(delta) {
 
 // Opening a clip from the list or the tape: go to Trim, play it, keep the video in view.
 function openClip(id) {
-  setTab(isEditTab() ? state.tab : state.editTab, { cue: false });
+  setTab('trim', { cue: false });
   selectClip(id);
   if (phonePortrait.matches) showEditorOnPhone();
   else window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -746,22 +698,49 @@ function moveClip(clip, delta) {
   renderAll();
 }
 
+// Sorting puts the clips in a new order everywhere (the list, the Clips arrows and
+// picker, and presenting). Ties keep game order. Undo puts the old order back.
+const CATEGORY_ORDER = { good: 0, 'needs-work': 1, teaching: 2 };
+const SORTS = {
+  time: { name: 'game time', key: () => 0 },
+  category: { name: 'category', key: (c) => CATEGORY_ORDER[c.category] ?? 3 },
+  player: { name: 'player number', key: (c) => (c.players.length ? Math.min(...c.players) : 1e6) },
+};
+function sortClips(by) {
+  const sort = SORTS[by];
+  if (!sort) return;
+  const before = clips().slice();
+  clips().sort((a, b) => (sort.key(a) - sort.key(b)) || (a.mark - b.mark) || (a.start - b.start));
+  if (clips().every((c, i) => c === before[i])) return toast(`Already in order by ${sort.name}.`, { ms: 2200 });
+  changed();
+  renderAll();
+  toast(`Sorted by ${sort.name}.`, {
+    action: 'Undo',
+    ms: 6000,
+    onAction: () => {
+      // Put back the old order by id, so a clip made or deleted since stays that way.
+      const at = new Map(before.map((c, i) => [c.id, i]));
+      const old = (c) => (at.has(c.id) ? at.get(c.id) : before.length);
+      clips().sort((a, b) => old(a) - old(b));
+      changed();
+      renderAll();
+    },
+  });
+}
+
 function trimAction(act, el) {
   const clip = selected();
   if (!clip) return;
   const duration = player.getDuration();
-  const edge = el.dataset.edge || state.edge; // Clips B buttons name their edge
+  const edge = el.dataset.edge; // the start and end buttons name their edge
 
   switch (act) {
     case 'prev': return step(-1);
     case 'next': return step(1);
     case 'replay': return playClip(clip);
     case 'roster': return openRoster();
-    case 'edge':
-      state.edge = el.dataset.edge;
-      return renderEditor();
     case 'type-edge': {
-      // Clips B: tap a time on the timeline to type it.
+      // Tap a time on the timeline to type it.
       if (el.querySelector('input')) return;
       const name = el.dataset.edge;
       el.querySelector('b').innerHTML = `<input type="text" inputmode="numeric" data-time data-edge="${name}" value="${formatTime(clip[name])}" aria-label="${name === 'start' ? 'Start' : 'End'} time">`;
@@ -962,7 +941,7 @@ $('#file-game').addEventListener('change', async (e) => {
   try {
     const game = await fileStore.load(file);
     if (!(await okToReplace())) return;
-    state.tab = game.clips.length ? state.editTab : 'clip';
+    state.tab = game.clips.length ? 'trim' : 'clip';
     setGame(game);
     toast(`Opened ${game.title || 'game'}: ${game.clips.length} clip${game.clips.length === 1 ? '' : 's'}.`);
   } catch (err) {
@@ -1108,6 +1087,23 @@ const openFromEvent = (e) => {
   if (item) openClip(item.dataset.id);
 };
 $('#clip-list').addEventListener('click', openFromEvent);
+$('#btn-sort').addEventListener('click', () => $('#dlg-sort').showModal());
+$('#dlg-sort').addEventListener('click', (e) => {
+  const item = e.target.closest('[data-sort]');
+  if (!item) return;
+  $('#dlg-sort').close();
+  sortClips(item.dataset.sort);
+});
+
+// On a wide screen the game strip sits under the video, in the room the video
+// leaves; elsewhere it heads the clip list.
+const wideQuery = matchMedia('(min-width: 1024px) and (min-height: 521px)');
+function placeTape() {
+  if (wideQuery.matches) $('.stage').append($('#tape'));
+  else $('.clips-head').after($('#tape'));
+}
+wideQuery.addEventListener('change', placeTape);
+placeTape();
 $('#tape').addEventListener('click', openFromEvent);
 
 const trimBox = $('#tab-trim');
@@ -1116,50 +1112,20 @@ trimBox.addEventListener('click', (e) => {
   if (el) trimAction(el.dataset.act, el);
 });
 
-// Scrub bar: press or drag to move through the clip; it plays from where you let go.
-let scrubbing = null;
-const scrubTime = (e, clip) => {
-  const box = $('#scrub').getBoundingClientRect();
-  return clip.start + clamp01((e.clientX - box.left) / box.width) * (clip.end - clip.start);
-};
-trimBox.addEventListener('pointerdown', (e) => {
-  const bar = e.target.closest('#scrub');
-  const clip = selected();
-  if (!bar || !clip || !player.isReady()) return;
-  scrubbing = clip.id;
-  bar.setPointerCapture(e.pointerId);
-  state.playing = null;
-  player.seek(scrubTime(e, clip));
-});
-trimBox.addEventListener('pointermove', (e) => {
-  const clip = selected();
-  if (!scrubbing || !clip || clip.id !== scrubbing) return;
-  const t = scrubTime(e, clip);
-  player.seek(t);
-  renderScrub(t);
-});
-const endScrub = (e) => {
-  const clip = selected();
-  if (scrubbing && clip && clip.id === scrubbing && e.type === 'pointerup') playClip(clip, scrubTime(e, clip));
-  scrubbing = null;
-};
-trimBox.addEventListener('pointerup', endScrub);
-trimBox.addEventListener('pointercancel', endScrub);
-
 trimBox.addEventListener('input', (e) => {
   const field = e.target.dataset.field;
   const clip = selected();
   if (!field || !clip) return;
   clip[field] = e.target.value;
   changed();
-  if (field === 'title') { renderList(); renderTape(); }
+  if (field === 'title') { renderList(); renderTape(); renderPickLabel(); }
 });
 trimBox.addEventListener('change', (e) => {
   const clip = selected();
   if (!clip) return;
   if (e.target.matches('[data-time]')) {
     const t = parseTime(e.target.value);
-    const edge = e.target.dataset.edge || state.edge;
+    const edge = e.target.dataset.edge;
     if (t == null) {
       toast('Type a time like 12:34 or 1:02:15.');
     } else {
@@ -1171,6 +1137,8 @@ trimBox.addEventListener('change', (e) => {
     const flag = e.target.closest('.tl-flag');
     if (flag) flag.querySelector('b').textContent = ''; // back to a label
     renderTimes();
+  } else if (e.target.matches('[data-pick]')) {
+    selectClip(e.target.value);
   } else if (e.target.matches('[data-add-player]') && e.target.value !== '') {
     addPlayerToClip(Number(e.target.value));
   }
@@ -1184,20 +1152,11 @@ trimBox.addEventListener('submit', (e) => {
 });
 trimBox.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && e.target.matches('[data-time]')) e.target.blur();
-  if (e.target.id === 'scrub' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
-    const clip = selected();
-    if (!clip) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const t = Math.max(clip.start, Math.min(clip.end, player.getTime() + (e.key === 'ArrowLeft' ? -1 : 1)));
-    state.playing = null;
-    player.seek(t);
-  }
 });
 trimBox.addEventListener('focusin', (e) => {
   if (e.target.matches('[data-time]')) e.target.select();
 });
-// A typed time on the Clips B timeline turns back into a label when you leave it.
+// A typed time on the timeline turns back into a label when you leave it.
 trimBox.addEventListener('focusout', (e) => {
   if (!e.target.matches('.tl-flag input')) return;
   setTimeout(() => {
@@ -1206,7 +1165,7 @@ trimBox.addEventListener('focusout', (e) => {
   }, 0);
 });
 
-// Clips B timeline: drag a handle to move that end (the video shows the frame
+// Trim timeline: drag a handle to move that end (the video shows the frame
 // under your finger); tap anywhere else on the track to watch from there.
 function timelineTime(e) {
   const v = state.view;
@@ -1248,8 +1207,7 @@ trimBox.addEventListener('pointermove', (e) => {
     player.seek(clip[state.drag.edge]);
     renderTimeline();
     renderScrub(clip[state.drag.edge]);
-    set('#ed-meta', `${clip.end - clip.start}s long${clip.by ? ` · ${clip.by}` : ''}`);
-  }
+    }
 });
 const endDrag = (e) => {
   const drag = state.drag;
@@ -1401,7 +1359,7 @@ async function start() {
   if (!fromLink.roster.length && saved.source && fromLink.source && saved.source.id === fromLink.source.id) {
     fromLink.roster = saved.roster;
   }
-  state.tab = fromLink.clips.length ? state.editTab : 'clip';
+  state.tab = fromLink.clips.length ? 'trim' : 'clip';
   setGame(fromLink);
 }
 
