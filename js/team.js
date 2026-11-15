@@ -2,7 +2,7 @@
 // lines) plus extra players, with import and export of the team file.
 // Every change is saved straight away through app.setRoster.
 
-import { SLOTS, POSITIONS, placeRoster, normalizeRoster, rosterToCsv } from './roster.js?v=9';
+import { SLOTS, POSITIONS, placeRoster, normalizeRoster, rosterToCsv } from './roster.js?v=14';
 
 const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => (

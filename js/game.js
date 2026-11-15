@@ -1,8 +1,8 @@
 // The game object: one video, its clips and a copy of the roster.
 // Every storage adapter reads and writes this shape and nothing else.
 
-import { CATEGORIES, clampWindow } from './clips.js?v=9';
-import { normalizeRoster } from './roster.js?v=9';
+import { CATEGORIES, clampWindow } from './clips.js?v=14';
+import { normalizeRoster } from './roster.js?v=14';
 
 export const SCHEMA_VERSION = 1;
 

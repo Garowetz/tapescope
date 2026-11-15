@@ -10,8 +10,11 @@
 //   signOut()
 //   whoAmI()                           -> { uid, teamId, google, name } or null
 //   listGames(teamId)                  -> [{ id, title, updatedAt, clipCount }]
-//   createGame(teamId, game)           -> gameId. game is the game.js shape
+//   createGame(teamId, game)           -> gameId at once (saves in the background)
 //   watchGame(teamId, gameId, onChange(game, { pending }), onError) -> stop()  (not async)
+//   saveChanges(teamId, gameId, { info, clips, deleted })   one atomic edit; returns
+//                                      before the server confirms (works offline)
+//   onWriteError(fn)                   (not async) where background write failures go
 //   saveGameInfo(teamId, gameId, { title, source, roster, order })
 //   saveClip(teamId, gameId, clip)
 //   deleteClip(teamId, gameId, clipId)
@@ -23,7 +26,7 @@
 let backend;
 
 export async function teamStore() {
-  if (!backend) backend = (await import('./firebase.js?v=9')).firebaseStore;
+  if (!backend) backend = (await import('./firebase.js?v=14')).firebaseStore;
   return backend;
 }
 

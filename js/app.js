@@ -5,15 +5,17 @@ import {
   BEFORE_OPTIONS, AFTER_OPTIONS, NUDGE_STEPS, CATEGORIES, END_PREVIEW,
   normalizeSettings, createClip, resetWindow, setStart, setEnd,
   formatTime, parseTime, categoryLabel,
-} from './clips.js?v=9';
-import { newGame } from './game.js?v=9';
-import { parseRosterText, playerLabel, loadTeam, saveTeam } from './roster.js?v=9';
-import { createRosterPage } from './team.js?v=9';
-import { createYouTubePlayer, parseYouTubeUrl } from './players/youtube.js?v=9';
-import { localStore } from './storage/local.js?v=9';
-import { fileStore } from './storage/file.js?v=9';
-import { linkStore, LONG_LINK } from './storage/link.js?v=9';
-import { createPresenter } from './present.js?v=9';
+} from './clips.js?v=14';
+import { newGame } from './game.js?v=14';
+import { parseRosterText, playerLabel, loadTeam, saveTeam } from './roster.js?v=14';
+import { createRosterPage } from './team.js?v=14';
+import { createYouTubePlayer, parseYouTubeUrl } from './players/youtube.js?v=14';
+import { localStore } from './storage/local.js?v=14';
+import { fileStore } from './storage/file.js?v=14';
+import { linkStore, LONG_LINK } from './storage/link.js?v=14';
+import { createPresenter } from './present.js?v=14';
+import { teamStore } from './storage/team.js?v=14';
+import { createTeamSync, mergeUnsaved } from './team-sync.js?v=14';
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => [...document.querySelectorAll(sel)];
@@ -26,6 +28,8 @@ const set = (sel, text) => { const el = document.querySelector(sel); if (el) el.
 
 const SETTINGS_KEY = 'tapescope.settings';
 const COACH_KEY = 'tapescope.coach';
+const TEAM_KEY = 'tapescope.teamLogin';     // { id, name } of the team this browser uses
+const TEAM_GAME_KEY = 'tapescope.teamGame'; // { team, game } the team game last open here
 const RATES = [0.25, 0.5, 1, 1.5, 2];
 const RATE_LABELS = { 0.25: '¼×', 0.5: '½×', 1: '1×', 1.5: '1½×', 2: '2×' };
 const DOUBLE_TAP_MS = 1500;  // a second identical press this soon is ignored
@@ -44,6 +48,7 @@ const state = {
   duration: 0,
   view: null,        // { id, from, to } the stretch of game the trim timeline shows
   drag: null,        // { edge } while a start or end handle is being dragged
+  team: null,        // { id, name, store, sync, saving } while signed in to a team
 };
 const isEditTab = (tab = state.tab) => tab === 'trim';
 
@@ -77,6 +82,7 @@ const rosterPage = createRosterPage({
 function setRoster(roster) {
   state.game.roster = roster;
   saveTeam(roster);
+  saveTeamRoster(roster);
   changed();
   renderChrome();
   renderEditor();
@@ -174,10 +180,17 @@ function toast(message, { action, onAction, ms = 3500 } = {}) {
   toastTimer = setTimeout(() => el.classList.remove('show'), ms);
 }
 
+// In a team, games live in the team's copy (cached on the device by the team
+// store), so this browser's own autosave keeps the last local game untouched.
+function saveLocal(game) {
+  if (!state.team) localStore.save(game);
+}
+
 let saveTimer = null;
 function changed() {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => localStore.save(state.game), 250);
+  saveTimer = setTimeout(() => saveLocal(state.game), 250);
+  if (state.team) state.team.sync.changed();
 }
 
 const clips = () => state.game.clips;
@@ -196,6 +209,11 @@ const lastUndoable = () => {
 // Resolves true to go ahead, false to stay.
 function okToReplace() {
   if (!clips().length) return Promise.resolve(true);
+  // A team game is already saved for the team: nothing to lose.
+  if (state.team && state.team.sync.gameId) {
+    state.team.sync.flush();
+    return Promise.resolve(true);
+  }
   const n = clips().length;
   $('#replace-body').textContent =
     `${state.game.title || 'This game'} has ${n} clip${n === 1 ? '' : 's'}. Save a copy first so you can get it back.`;
@@ -396,6 +414,7 @@ function renderChrome() {
     : 'Type in your players, or import a file';
   $('#window-status').textContent = `${coach ? `${coach} · ` : ''}${THEME_NAMES[getTheme()]} theme · clips ${state.settings.before}s before, ${state.settings.after}s after`;
   $('#clip-window').textContent = `Saves ${windowText()}`;
+  renderTeamChrome();
 
   $$('.clip-count').forEach((count) => {
     count.hidden = !clips().length;
@@ -820,7 +839,14 @@ function addPlayerToClip(number) {
 
 // ---------- games ----------
 
-function setGame(game, startAt = 0) {
+// teamGameId: the team game this is (from the team's copy). Any other game set
+// while in a team becomes a new team game as soon as it has a video.
+function setGame(game, startAt = 0, teamGameId = null) {
+  const team = state.team;
+  if (team && team.sync.gameId !== teamGameId) {
+    team.sync.flush(); // the game on screen is still the old one: save its last edits
+    team.sync.detach();
+  }
   state.game = game;
   state.selectedId = game.clips[0] ? game.clips[0].id : null;
   state.undoStack = [];
@@ -828,9 +854,11 @@ function setGame(game, startAt = 0) {
   state.lastAdd = null;
   state.newSinceTrim = false;
   state.watchAt = null;
-  localStore.save(game);
+  saveLocal(game);
   renderAll();
   loadVideo(startAt);
+  if (team && teamGameId) rememberTeamGame(teamGameId);
+  else if (team && game.source) team.sync.changed();
 }
 
 function renderShare() {
@@ -921,9 +949,19 @@ $('#game-title').addEventListener('keydown', (e) => { if (e.key === 'Enter') e.t
 
 $('#btn-new').addEventListener('click', async () => {
   if (!(await okToReplace())) return;
-  localStore.save({ ...newGame(), roster: state.game.roster });
-  location.reload(); // simplest way to clear the old video out of the player
+  newGameReload();
 });
+
+async function newGameReload() {
+  if (state.team) {
+    leaving = true;
+    await state.team.sync.settle();
+    writeJSON(TEAM_GAME_KEY, { team: state.team.id, game: 'new' });
+  } else {
+    localStore.save({ ...newGame(), roster: state.game.roster });
+  }
+  location.reload(); // simplest way to clear the old video out of the player
+}
 
 $('#btn-save').addEventListener('click', () => {
   if (!state.game.source) return toast('Nothing to save yet. Load a video first.');
@@ -1338,9 +1376,346 @@ window.addEventListener('blur', () => {
   }, 100);
 });
 
+// ---------- team ----------
+// A team link (?team=id) signs this browser in to a team. From then on games are
+// shared with every coach on the team and kept in step live. Without a team the
+// site works as before, all in this browser.
+
+const readJSON = (key) => { try { return JSON.parse(localStorage.getItem(key)); } catch { return null; } };
+const writeJSON = (key, v) => { try { if (v == null) localStorage.removeItem(key); else localStorage.setItem(key, JSON.stringify(v)); } catch { /* ignore */ } };
+
+// The browser's own last game, once added to the team, isn't offered again.
+const UPLOADED_KEY = 'tapescope.teamUploaded';
+const localKey = (g) => `${g.source && g.source.id}|${g.clips.map((c) => c.id).join(',')}`;
+
+let leaving = false; // a reload for a new game has started: don't remember the old one
+function rememberTeamGame(game) {
+  if (state.team && !leaving) writeJSON(TEAM_GAME_KEY, { team: state.team.id, game });
+}
+
+// Before the page goes away (tab closed, phone locked, app switched): start the
+// save, and keep a copy of what isn't saved yet in this browser, because the
+// save may not finish once the page is gone. It is replayed next time the game
+// opens, and dropped once the team has confirmed everything.
+const UNSAVED_KEY = 'tapescope.teamUnsaved';
+function stashUnsaved() {
+  const t = state.team;
+  if (!t) return;
+  const u = t.sync.unsaved();
+  if (u) writeJSON(UNSAVED_KEY, { team: t.id, ...u });
+  t.sync.flush();
+}
+addEventListener('pagehide', stashUnsaved);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') stashUnsaved();
+});
+function rememberedTeamGame(teamId) {
+  const r = readJSON(TEAM_GAME_KEY);
+  return r && r.team === teamId ? r.game : null;
+}
+
+function renderTeamChrome() {
+  const t = state.team;
+  $$('[data-team]').forEach((el) => { el.hidden = !t; });
+  $$('[data-team-games]').forEach((el) => { el.hidden = !t; });
+  if (!t) return;
+  $('#team-status').textContent = `${t.name} · shared with every coach on the team`;
+  $('#welcome-team').textContent = `${t.name} games`;
+  $('#welcome-fine').textContent = `Signed in to ${t.name}. Games are saved for every coach on the team.`;
+  renderSaveNote();
+}
+
+function renderSaveNote() {
+  const t = state.team;
+  const note = $('#save-note');
+  if (!t) { note.textContent = 'Autosaved in this browser as you work.'; return; }
+  if (!t.sync.gameId) note.textContent = state.game.source ? `Saving to ${t.name}…` : `Signed in to ${t.name}.`;
+  else if (!navigator.onLine) note.textContent = 'Offline. Your changes are kept and will send when you are back online.';
+  else note.textContent = t.saving ? `Saving to ${t.name}…` : `Saved to ${t.name}. Other coaches see changes as you make them.`;
+}
+addEventListener('online', renderSaveNote);
+addEventListener('offline', renderSaveNote);
+
+let rosterTimer = null;
+function saveTeamRoster(roster) {
+  const t = state.team;
+  if (!t) return;
+  clearTimeout(rosterTimer);
+  rosterTimer = setTimeout(() => t.store.saveRoster(t.id, roster).catch((e) => toast(e.message)), 800);
+}
+
+// Another coach changed the game: take their copy without disturbing what's on
+// screen more than needed. A field being typed in is left alone until it's done.
+let editorStale = false;
+function applyRemote(game) {
+  const sourceChanged = (state.game.source && state.game.source.id) !== (game.source && game.source.id);
+  state.game = game;
+  if (!selected()) state.selectedId = clips()[0] ? clips()[0].id : null;
+  if (sourceChanged) loadVideo(0);
+  renderChrome();
+  renderTabs();
+  renderList();
+  renderTape();
+  const el = document.activeElement;
+  if (state.drag || ($('#tab-trim').contains(el) && el.matches('input, textarea, select'))) editorStale = true;
+  else renderEditor();
+}
+$('#tab-trim').addEventListener('focusout', () => {
+  setTimeout(() => {
+    const el = document.activeElement;
+    if (editorStale && !state.drag && !($('#tab-trim').contains(el) && el.matches('input, textarea, select'))) {
+      editorStale = false;
+      renderEditor();
+    }
+  }, 0);
+});
+
+function enterTeam(store, id, name) {
+  writeJSON(TEAM_KEY, { id, name });
+  const team = { id, name, store, saving: false };
+  team.sync = createTeamSync({
+    store,
+    teamId: id,
+    getGame: () => state.game,
+    onOpen: (game, gameId) => {
+      $('#dlg-games').close();
+      state.tab = 'clip';
+      const u = readJSON(UNSAVED_KEY);
+      if (u && u.team === id && u.gameId === gameId) {
+        writeJSON(UNSAVED_KEY, null);
+        setGame(mergeUnsaved(game, u), 0, gameId);
+        team.sync.changed(); // send what didn't make it last time
+        return;
+      }
+      setGame(game, 0, gameId);
+    },
+    onRemote: applyRemote,
+    onCreated: (gameId) => rememberTeamGame(gameId),
+    onGone: () => {
+      toast('That game was deleted by another coach.', { ms: 6000 });
+      rememberTeamGame('new');
+      setGame({ ...newGame(), roster: loadTeam() });
+      openGames();
+    },
+    onError: (err) => toast(err.message, { ms: 6000 }),
+    onStatus: ({ saving, confirmed }) => {
+      team.saving = saving;
+      renderSaveNote();
+      // The server has everything: a stash for this game is no longer needed.
+      const u = readJSON(UNSAVED_KEY);
+      if (confirmed && u && u.gameId === team.sync.gameId && !team.sync.unsaved()) writeJSON(UNSAVED_KEY, null);
+    },
+  });
+  store.onWriteError((err) => toast(err.message, { ms: 6000 }));
+  state.team = team;
+  document.body.classList.add('in-team');
+  renderChrome();
+
+  // The team roster: the team's copy wins over this browser's.
+  store.loadRoster(id).then((players) => {
+    if (players && players.length) {
+      saveTeam(players);
+      if (!state.game.roster.length) { state.game.roster = loadTeam(); renderChrome(); }
+    }
+  }).catch(() => { /* offline: keep this browser's */ });
+
+  const last = rememberedTeamGame(id);
+  if (last && last !== 'new') {
+    team.sync.open(last);
+    return;
+  }
+  setGame({ ...newGame(), roster: loadTeam() });
+  if (last !== 'new') openGames();
+}
+
+// Shows the sign-in pop-up. Resolves true once signed in, false for "Not now".
+function askSignIn(store, id, name) {
+  const dlg = $('#dlg-signin');
+  $('#signin-title').textContent = `Sign in to ${name}`;
+  $('#signin-user').value = id;
+  $('#signin-pass').value = '';
+  $('#signin-name').value = coach;
+  $('#signin-err').hidden = true;
+  return new Promise((resolve) => {
+    let done = false;
+    const onSubmit = async (e) => {
+      e.preventDefault();
+      const go = $('#signin-go');
+      go.disabled = true;
+      $('#signin-err').hidden = true;
+      try {
+        await store.signIn(id, $('#signin-pass').value, $('#signin-keep').checked);
+        if ($('#signin-name').value.trim()) saveCoach($('#signin-name').value);
+        done = true;
+        dlg.close();
+      } catch (err) {
+        $('#signin-err').textContent = err.message;
+        $('#signin-err').hidden = false;
+      } finally {
+        go.disabled = false;
+      }
+    };
+    $('#signin-form').addEventListener('submit', onSubmit);
+    dlg.addEventListener('close', () => {
+      $('#signin-form').removeEventListener('submit', onSubmit);
+      resolve(done);
+    }, { once: true });
+    dlg.showModal();
+    $('#signin-pass').focus();
+  });
+}
+
+// Returns true if this browser ends up in the team.
+async function initTeam(id, { fromLink }) {
+  let store;
+  try {
+    store = await teamStore();
+  } catch {
+    toast("Can't reach the team right now. Working in this browser only.", { ms: 6000 });
+    return false;
+  }
+  const saved = readJSON(TEAM_KEY);
+  const me = await store.whoAmI().catch(() => null);
+  if (me && me.teamId === id) {
+    const name = (saved && saved.id === id && saved.name)
+      || ((await store.teamLink(id).catch(() => null)) || {}).name || id;
+    enterTeam(store, id, name);
+    return true;
+  }
+  let link;
+  try {
+    link = await store.teamLink(id);
+  } catch (err) {
+    toast(err.message, { ms: 6000 });
+    return false;
+  }
+  if (!link) {
+    writeJSON(TEAM_KEY, null);
+    toast("That team link doesn't work. Check it with whoever sent it.", { ms: 7000 });
+    return false;
+  }
+  if (!fromLink) {
+    // Signed out here (or the password changed): ask again.
+    toast(`Sign in to ${link.name} again to see the team's games.`, { ms: 5000 });
+  }
+  if (await askSignIn(store, id, link.name)) {
+    enterTeam(store, id, link.name);
+    return true;
+  }
+  writeJSON(TEAM_KEY, null);
+  return false;
+}
+
+const dateText = (ms) => (ms ? new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '');
+
+async function openGames() {
+  const t = state.team;
+  if (!t) return;
+  $('#games-title').textContent = `${t.name} games`;
+  const local = localStore.load();
+  const localBtn = $('#games-local');
+  localBtn.hidden = !(local && local.source && local.clips.length) || readJSON(UPLOADED_KEY) === localKey(local);
+  if (!localBtn.hidden) {
+    localBtn.textContent = `Add "${local.title || 'Untitled game'}" (${local.clips.length} clips) from this browser`;
+  }
+  const list = $('#games-list');
+  list.innerHTML = '<li class="note">Loading…</li>';
+  if (!$('#dlg-games').open) $('#dlg-games').showModal();
+  try {
+    const games = await t.store.listGames(t.id);
+    list.innerHTML = games.length ? games.map((g) => {
+      const current = g.id === t.sync.gameId;
+      const title = g.title || 'Untitled game';
+      const meta = [`${g.clipCount} clip${g.clipCount === 1 ? '' : 's'}`, dateText(g.updatedAt), current ? 'open now' : ''].filter(Boolean).join(' · ');
+      return `<li>
+        <button type="button" class="menu-item${current ? ' current' : ''}" data-game="${esc(g.id)}">
+          ${icon('folder')}<span><strong>${esc(title)}</strong><small>${esc(meta)}</small></span>
+        </button>
+        <button type="button" class="icon-btn" data-del-game="${esc(g.id)}" data-title="${esc(title)}" aria-label="Delete ${esc(title)}">${icon('trash')}</button>
+      </li>`;
+    }).join('') : '<li class="empty">No games yet. Start one with New game.</li>';
+  } catch (err) {
+    list.innerHTML = `<li class="note">${esc(err.message)}</li>`;
+  }
+}
+
+$('#btn-team-games').addEventListener('click', openGames);
+$$('[data-team-games]').forEach((b) => b.addEventListener('click', openGames));
+
+$('#dlg-games').addEventListener('click', async (e) => {
+  const t = state.team;
+  if (!t) return;
+  const open = e.target.closest('[data-game]');
+  if (open) {
+    if (open.dataset.game !== t.sync.gameId) {
+      t.sync.flush();
+      t.sync.open(open.dataset.game);
+    }
+    return;
+  }
+  const del = e.target.closest('[data-del-game]');
+  if (!del) return;
+  if (!confirm(`Delete "${del.dataset.title}" for every coach on ${t.name}? This can't be undone.`)) return;
+  const id = del.dataset.delGame;
+  try {
+    if (id === t.sync.gameId) {
+      t.sync.detach();
+      rememberTeamGame('new');
+      setGame({ ...newGame(), roster: loadTeam() });
+    }
+    await t.store.deleteGame(t.id, id);
+    toast('Game deleted.');
+  } catch (err) {
+    toast(err.message);
+  }
+  openGames();
+});
+
+$('#games-new').addEventListener('click', () => {
+  $('#dlg-games').close();
+  if (!state.game.source) return;
+  newGameReload();
+});
+
+$('#games-local').addEventListener('click', () => {
+  const local = localStore.load();
+  $('#dlg-games').close();
+  if (!local || !local.source) return;
+  state.tab = local.clips.length ? 'trim' : 'clip';
+  writeJSON(UPLOADED_KEY, localKey(local));
+  setGame(local); // not a team game yet, so it is saved to the team as a new one
+  toast(`Added "${local.title || 'Untitled game'}" to ${state.team.name}.`);
+});
+
+$('#btn-team-out').addEventListener('click', async () => {
+  const t = state.team;
+  if (!t) return;
+  if (!confirm(`Sign out of ${t.name} on this device? The team's games stay saved for the team.`)) return;
+  await t.sync.settle();
+  await t.store.signOut().catch(() => {});
+  writeJSON(TEAM_KEY, null);
+  writeJSON(TEAM_GAME_KEY, null);
+  location.reload();
+});
+
 // ---------- start ----------
 
 async function start() {
+  // A team link, or a team this browser signed in to before.
+  const params = new URLSearchParams(location.search);
+  const linkTeam = (params.get('team') || '').trim().toLowerCase();
+  if (linkTeam) {
+    params.delete('team');
+    const rest = params.toString();
+    history.replaceState(null, '', location.pathname + (rest ? `?${rest}` : '') + location.hash);
+  }
+  const savedTeam = readJSON(TEAM_KEY);
+  const teamId = linkTeam || (savedTeam && savedTeam.id);
+  if (teamId && !location.hash) {
+    renderAll(); // the welcome screen behind the sign-in, not a blank page
+    if (await initTeam(teamId, { fromLink: !!linkTeam })) return;
+  }
+
   const saved = localStore.load() || newGame();
   // No roster in the saved game: start from the team roster kept in this browser.
   if (!saved.roster.length) saved.roster = loadTeam();

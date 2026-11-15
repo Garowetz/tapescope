@@ -15,7 +15,7 @@
       document.documentElement.dataset.theme = ['dark', 'light', 'system'].indexOf(t) >= 0 ? t : 'dark';
     } catch (e) { document.documentElement.dataset.theme = 'dark'; }
   </script>
-  <link rel="stylesheet" href="css/styles.css?v=9">
+  <link rel="stylesheet" href="css/styles.css?v=14">
 </head>
 <body>
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -86,12 +86,13 @@
           <button type="submit" class="btn primary">Start clipping</button>
         </form>
         <button type="button" class="btn ghost outline" data-open-game><svg class="i" aria-hidden="true"><use href="#i-folder"/></svg>Open a saved game</button>
+        <button type="button" class="btn soft" data-team-games hidden><svg class="i" aria-hidden="true"><use href="#i-folder"/></svg><span id="welcome-team">Team games</span></button>
         <ol class="steps">
           <li><span class="step-n">1</span><div><strong>Review</strong><p>Watch the game once. Press Clip it right after something happens.</p></div></li>
           <li><span class="step-n">2</span><div><strong>Clips</strong><p>Tighten each clip, tag the players and add your talking points.</p></div></li>
           <li><span class="step-n">3</span><div><strong>Present</strong><p>Show the clips on a TV or iPad, one at a time, in slow motion if you like.</p></div></li>
         </ol>
-        <p class="fine">Nothing is uploaded. Your games stay in this browser and in files you keep.</p>
+        <p class="fine" id="welcome-fine">Nothing is uploaded. Your games stay in this browser and in files you keep.</p>
       </div>
     </section>
 
@@ -238,6 +239,8 @@
 
   <dialog id="dlg-menu" class="dialog menu">
     <div class="menu-list">
+      <button type="button" class="menu-item" id="btn-team-games" data-team hidden><svg class="i" aria-hidden="true"><use href="#i-folder"/></svg><span><strong>Team games</strong><small id="team-status"></small></span></button>
+      <hr data-team hidden>
       <button type="button" class="menu-item" id="btn-video" data-needs-video><svg class="i" aria-hidden="true"><use href="#i-link"/></svg><span><strong>Change video</strong></span></button>
       <button type="button" class="menu-item" id="btn-roster"><svg class="i" aria-hidden="true"><use href="#i-users"/></svg><span><strong>Team roster</strong><small id="roster-status"></small></span></button>
       <button type="button" class="menu-item" id="btn-settings"><svg class="i" aria-hidden="true"><use href="#i-sliders"/></svg><span><strong>Settings</strong><small id="window-status"></small></span></button>
@@ -248,8 +251,41 @@
       <button type="button" class="menu-item" id="btn-share-2" data-needs-video><svg class="i" aria-hidden="true"><use href="#i-share"/></svg><span><strong>Share link</strong></span></button>
       <hr>
       <button type="button" class="menu-item" id="btn-new" data-needs-video><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg><span><strong>New game</strong></span></button>
+      <button type="button" class="menu-item" id="btn-team-out" data-team hidden><svg class="i" aria-hidden="true"><use href="#i-x"/></svg><span><strong>Sign out of the team</strong><small>This device only</small></span></button>
     </div>
-    <p class="menu-foot">Autosaved in this browser as you work.</p>
+    <p class="menu-foot" id="save-note">Autosaved in this browser as you work.</p>
+  </dialog>
+
+  <dialog id="dlg-signin" class="dialog">
+    <form id="signin-form" class="stack">
+      <h2 id="signin-title">Sign in to your team</h2>
+      <p class="muted">Use the team password you were sent. Games you open or make are shared with every coach on the team.</p>
+      <input type="text" id="signin-user" class="sr-only" autocomplete="username" tabindex="-1" aria-hidden="true">
+      <label class="field"><span>Team password</span>
+        <input type="password" id="signin-pass" autocomplete="current-password" autocapitalize="none" spellcheck="false" required>
+      </label>
+      <label class="field"><span>Your name</span>
+        <input type="text" id="signin-name" maxlength="40" autocomplete="name" placeholder="e.g. Coach Sam">
+        <small class="hint">Shown on the clips you make.</small>
+      </label>
+      <label class="switch"><input type="checkbox" id="signin-keep" checked><span class="track"></span><span><strong>Keep me signed in</strong><small>Turn off on a shared computer.</small></span></label>
+      <p class="form-err" id="signin-err" role="alert" hidden></p>
+      <div class="dialog-actions column">
+        <button type="submit" class="btn primary" id="signin-go">Sign in</button>
+        <button type="button" class="btn ghost" data-close>Not now</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-games" class="dialog">
+    <div class="stack">
+      <h2 id="games-title">Team games</h2>
+      <ul class="games-list" id="games-list"></ul>
+      <div class="dialog-actions column">
+        <button type="button" class="btn primary" id="games-new"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg>New game</button>
+        <button type="button" class="btn" id="games-local" hidden></button>
+      </div>
+    </div>
   </dialog>
 
   <dialog id="dlg-clip" class="dialog menu clip-menu">
@@ -355,7 +391,7 @@
   <input type="file" id="file-roster" accept=".csv,.json,text/csv,application/json" hidden>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="js/vendor/lz-string.min.js?v=9"></script>
-  <script type="module" src="js/app.js?v=9"></script>
+  <script src="js/vendor/lz-string.min.js?v=14"></script>
+  <script type="module" src="js/app.js?v=14"></script>
 </body>
 </html>

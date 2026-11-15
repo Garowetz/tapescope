@@ -5,9 +5,9 @@ moments worth talking about, trim them, and show them to the team.
 
 **Open it here: https://garowetz.github.io/tapescope/**
 
-Nothing is installed and there are no accounts. Tape Scope plays YouTube video
-inside the page, and everything you make stays in your browser and in files you
-keep. This site and repo hold code only: no games, rosters or player names.
+Nothing is installed. Tape Scope plays YouTube video inside the page. On your
+own, everything you make stays in your browser and in files you keep; a team the
+site owner sets up can share its games between coaches (see Team games). This site and repo hold code only: no games, rosters or player names.
 
 ## The workflow: Review, Clips, Present
 
@@ -95,6 +95,23 @@ see?" before explaining, and end on a positive clip.
 **Appearance** (Dark, Light, or System to follow your device; Dark is the default)
 and the clip length for new clips.
 
+## Team games (shared between coaches)
+
+If the site's owner set up your team, you'll get a **team link** and a **team
+password**. Open the link, type the password once, and add your name. From then on:
+
+- The **Team games** list (in the menu, or on the start screen) shows every game
+  the team has, newest first. Tap one to open it, or start a **New game**.
+- Everything you do saves for the whole team as you go. When another coach adds or
+  changes a clip, you see it within a second or two. Two coaches can work on the
+  same game at once; if you both edit the same clip, the last change wins.
+- It keeps working without a connection and sends your changes when you're back.
+- The team roster is shared too.
+- The plain site address remembers your team on that device. **Sign out of the
+  team** in the menu forgets it (do that on a shared computer).
+- The game you had in this browser before signing in is still there after you sign
+  out, and the Team games list offers to add it to the team.
+
 ## Saving and sharing
 
 - **Autosave.** Your work is saved in this browser as you go, so a closed tab
@@ -181,6 +198,10 @@ python -m http.server 8123
 | `js/team.js` | The team roster page |
 | `js/players/youtube.js` | YouTube player adapter. A local-file adapter exposes the same methods |
 | `js/storage/local.js`, `file.js`, `link.js` | Storage adapters: autosave, game file, share link |
+| `js/storage/team.js`, `firebase.js` | Team games: the interface the app uses, and its Firebase backend (the only file that imports Firebase) |
+| `js/team-sync.js` | Keeps the game on screen and the team's copy in step |
+| `admin.html`, `js/admin.js` | Owner-only page to create teams and set their passwords |
+| `firestore.rules` | Who can read and write what. Tests: `npm --prefix tools/rules-test test` (needs Java 21) |
 | `js/app.js` | UI wiring and settings |
 | `js/present.js` | Presentation mode. Pins the existing player over the presentation screen rather than moving it, because moving a YouTube iframe reloads it |
 | `js/vendor/lz-string.min.js` | [lz-string](https://github.com/pieroxy/lz-string) 1.5.0 (MIT), compresses share links |

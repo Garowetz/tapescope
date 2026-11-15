@@ -8,8 +8,8 @@
 // A team signs in with one shared login (email/password with a made-up address).
 // firestore.rules lets that login reach only its own team.
 
-import { firebaseConfig } from './firebase-config.js?v=9';
-import { normalizeGame, SCHEMA_VERSION } from '../game.js?v=9';
+import { firebaseConfig } from './firebase-config.js?v=14';
+import { normalizeGame, SCHEMA_VERSION } from '../game.js?v=14';
 
 const SDK = 'https://www.gstatic.com/firebasejs/13.1.0';
 const LOGIN_DOMAIN = 'teams.tapescope.invalid';
@@ -61,6 +61,12 @@ function friendly(err) {
   return err instanceof Error ? err : new Error(String(err));
 }
 
+// Writes that finish in the background report failures here (set by onWriteError).
+let writeError = (e) => console.warn(e);
+function background(promise) {
+  promise.catch((e) => writeError(friendly(e)));
+}
+
 async function guard(fn) {
   try {
     return await fn();
@@ -72,7 +78,8 @@ async function guard(fn) {
 // Builds a game.js game from the game record and its clip records.
 function assemble(info, clipDocs) {
   const byId = new Map(clipDocs.map((d) => [d.id, d.data()]));
-  const order = Array.isArray(info.order) ? info.order.filter((id) => byId.has(id)) : [];
+  // Each clip once, in the saved order; clips missing from the order go last.
+  const order = Array.isArray(info.order) ? [...new Set(info.order)].filter((id) => byId.has(id)) : [];
   const listed = new Set(order);
   const rest = [...byId.keys()].filter((id) => !listed.has(id))
     .sort((a, b) => (byId.get(a).mark || 0) - (byId.get(b).mark || 0));
@@ -110,6 +117,8 @@ async function makeLogin(email, password) {
 }
 
 export const firebaseStore = {
+  onWriteError(fn) { writeError = fn; },
+
   async teamLink(teamId) {
     const { db, F } = await load();
     return guard(async () => {
@@ -163,7 +172,7 @@ export const firebaseStore = {
     const { db, F } = await load();
     return guard(async () => {
       const ref = F.doc(F.collection(db, 'teams', teamId, 'games'));
-      const clips = game.clips.slice(0, 450); // one batch holds 500 writes
+      const clips = game.clips;
       const batch = F.writeBatch(db);
       batch.set(ref, {
         schemaVersion: SCHEMA_VERSION,
@@ -175,8 +184,16 @@ export const firebaseStore = {
         createdAt: now(),
         updatedAt: now(),
       });
-      for (const clip of clips) batch.set(F.doc(ref, 'clips', clip.id), { ...clipRecord(clip), updatedAt: now() });
-      await batch.commit();
+      // A batch holds 500 writes: the first 400 clips go with the game, the rest after.
+      for (const clip of clips.slice(0, 400)) batch.set(F.doc(ref, 'clips', clip.id), { ...clipRecord(clip), updatedAt: now() });
+      for (let i = 400; i < clips.length; i += 400) {
+        const more = F.writeBatch(db);
+        for (const clip of clips.slice(i, i + 400)) more.set(F.doc(ref, 'clips', clip.id), { ...clipRecord(clip), updatedAt: now() });
+        background(more.commit());
+      }
+      // Not awaited: offline, the commit waits for a connection, but the game is
+      // already in the local cache and its snapshots fire straight away.
+      background(batch.commit());
       return ref.id;
     });
   },
@@ -188,10 +205,19 @@ export const firebaseStore = {
     let clipDocs = null;
     let infoPending = false;
     let clipsPending = false;
+    let fromCache = false;
     let stopped = false;
     const stops = [];
+    // The game record and the clips arrive on two listeners. Wait a tick so one
+    // edit that touched both is reported once, whole.
+    let queued = false;
     const emit = () => {
-      if (info && clipDocs && !stopped) onChange(assemble(info, clipDocs), { pending: infoPending || clipsPending });
+      if (queued) return;
+      queued = true;
+      setTimeout(() => {
+        queued = false;
+        if (info && clipDocs && !stopped) onChange(assemble(info, clipDocs), { pending: infoPending || clipsPending, fromCache });
+      }, 0);
     };
     const fail = (e) => { if (!stopped) onError(friendly(e)); };
     load().then(({ db, F }) => {
@@ -201,6 +227,7 @@ export const firebaseStore = {
         if (!s.exists()) { fail(new Error('That game was deleted.')); return; }
         info = s.data();
         infoPending = s.metadata.hasPendingWrites;
+        fromCache = s.metadata.fromCache;
         emit();
       }, fail));
       stops.push(F.onSnapshot(F.collection(ref, 'clips'), (s) => {
@@ -218,6 +245,25 @@ export const firebaseStore = {
     for (const k of ['title', 'source', 'roster']) if (k in fields) data[k] = plain(fields[k]);
     if (Array.isArray(fields.order)) { data.order = fields.order; data.clipCount = fields.order.length; }
     return guard(() => F.setDoc(F.doc(db, 'teams', teamId, 'games', gameId), data, { merge: true }));
+  },
+
+  // Everything one edit changed, in one batch so other listeners never see half
+  // of it. info: { title, source, roster, order } or null. Not awaited (see createGame).
+  async saveChanges(teamId, gameId, { info = null, clips = [], deleted = [] }) {
+    // No await once loaded, so a save started as the page closes is handed to
+    // Firestore before the page goes.
+    const { db, F } = fb || await load();
+    const ref = F.doc(db, 'teams', teamId, 'games', gameId);
+    const batch = F.writeBatch(db);
+    const head = { updatedAt: now() };
+    if (info) {
+      for (const k of ['title', 'source', 'roster']) if (k in info) head[k] = plain(info[k]);
+      if (Array.isArray(info.order)) { head.order = info.order; head.clipCount = info.order.length; }
+    }
+    batch.set(ref, head, { merge: true });
+    for (const clip of clips) batch.set(F.doc(ref, 'clips', clip.id), { ...clipRecord(clip), updatedAt: now() });
+    for (const id of deleted) batch.delete(F.doc(ref, 'clips', id));
+    background(batch.commit());
   },
 
   async saveClip(teamId, gameId, clip) {

@@ -1,7 +1,7 @@
 // Admin page (admin.html): the owner signs in with Google and manages team logins.
 // Access is enforced by firestore.rules, not by this page.
 
-import { teamStore, TEAM_ID, teamIdFromName, teamUrl } from './storage/team.js?v=9';
+import { teamStore, TEAM_ID, teamIdFromName, teamUrl } from './storage/team.js?v=14';
 
 const $ = (s) => document.querySelector(s);
 const show = (sel, on = true) => { $(sel).hidden = !on; };

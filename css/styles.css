@@ -189,7 +189,7 @@ kbd {
 }
 .link:hover { color: var(--text); }
 
-input[type="text"], input[type="url"], select, textarea {
+input[type="text"], input[type="url"], input[type="password"], select, textarea {
   width: 100%; min-height: var(--tap); padding: 10px 12px;
   background: var(--s1); border: 1px solid var(--line-2); border-radius: var(--r);
   font-size: 16px; /* stops iOS zooming the page on focus */
@@ -939,3 +939,16 @@ body.presenting .stage { position: static !important; z-index: auto !important; 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ---------- team: sign-in and games list ---------- */
+.sr-only, input.sr-only { position: absolute !important; width: 1px !important; min-height: 0 !important; height: 1px !important; padding: 0 !important; border: 0 !important; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; }
+.form-err { margin: 0; color: var(--danger); font-size: 0.92rem; }
+.games-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: min(52dvh, 460px); overflow-y: auto; }
+.games-list li { display: flex; align-items: stretch; gap: 4px; }
+.games-list .menu-item { flex: 1 1 auto; min-width: 0; background: var(--s2); }
+.games-list .menu-item:hover { background: var(--s3); }
+.games-list .menu-item strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.games-list .menu-item.current { box-shadow: inset 3px 0 0 var(--accent); }
+.games-list .icon-btn { flex: none; align-self: center; color: var(--text-3); }
+.games-list .icon-btn:hover { color: var(--danger); }
+.games-list .empty, .games-list .note { color: var(--text-3); padding: 10px 4px; font-size: 0.92rem; }

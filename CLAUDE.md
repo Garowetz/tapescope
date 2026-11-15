@@ -70,6 +70,10 @@ the owner also wants real shared team accounts (Firebase was suggested) later.
 - `firestore.rules` holds the owner's Google uid as admin. Test with
   `npm --prefix tools/rules-test test` (needs Java 21 on PATH). Deploy with
   `firebase deploy --only firestore:rules`, or paste into the console Rules tab.
+- In the app: `?team=id` (or the remembered team) shows sign-in, then the Team games
+  list. `js/team-sync.js` diffs the game on screen against the team copy on each
+  `changed()` and saves one batch; other coaches' edits arrive via `applyRemote`.
+  In a team, `saveLocal` skips the browser autosave so the local game survives.
 - Test team `test-team` exists; use made-up names only.
 
 ## Releasing
@@ -79,7 +83,7 @@ browser never mixes old and new modules after a deploy (GitHub Pages caches for
 10 minutes, and a mix breaks the app at load). Bump N everywhere on each release:
 
 ```bash
-grep -rl "?v=9" index.html js | xargs sed -i 's/?v=9/?v=10/g'
+grep -rl "?v=14" index.html admin.html js | xargs sed -i 's/?v=14/?v=15/g'
 ```
 
 ## Running and testing
