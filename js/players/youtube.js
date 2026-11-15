@@ -5,7 +5,8 @@
 //   play() / pause()
 //   seek(seconds)
 //   getTime() -> seconds      getDuration() -> seconds, 0 if unknown
-//   setRate(rate)
+//   setRate(rate)           getRates() -> speeds this video allows
+//   setMuted(bool) / isMuted()
 //   isReady() / isPlaying()
 //   onTime(cb)   cb(seconds) about every 200 ms while a video is loaded
 //   onError(cb)  cb(message)
@@ -128,6 +129,11 @@ export function createYouTubePlayer(mount) {
     getTime() { return ready && yt.getCurrentTime ? yt.getCurrentTime() || 0 : 0; },
     getDuration() { return ready && yt.getDuration ? yt.getDuration() || 0 : 0; },
     setRate(rate) { if (ready) yt.setPlaybackRate(rate); },
+    getRates() { return ready && yt.getAvailablePlaybackRates ? yt.getAvailablePlaybackRates() || [] : []; },
+    // iPads and iPhones have no volume slider in the YouTube player (iOS only lets
+    // the hardware buttons set the volume), so the app offers its own mute button.
+    setMuted(on) { if (ready) { if (on) yt.mute(); else yt.unMute(); } },
+    isMuted() { return ready && yt.isMuted ? yt.isMuted() : false; },
     isReady() { return ready && loaded; },
     isPlaying() {
       if (!ready) return false;

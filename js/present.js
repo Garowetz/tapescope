@@ -4,14 +4,14 @@
 // YouTube iframe in the page reloads it. Instead the existing player is pinned
 // (position: fixed) over the empty #pv-stage area and put back on exit.
 
-import { categoryLabel } from './clips.js?v=7';
-import { playerLabel } from './roster.js?v=7';
+import { categoryLabel } from './clips.js?v=8';
+import { playerLabel } from './roster.js?v=8';
 
 const PREFS_KEY = 'tapescope.present';
 const REEL_GAP_MS = 1500; // pause between clips in Play all
 const ASPECT = 16 / 9;
-// Matches the CSS breakpoint where talking points move under the video.
-const portraitQuery = matchMedia('(max-aspect-ratio: 5/4)');
+const NOTES_MIN_W = 280; // talking points beside the video: at least this wide
+const NOTES_MIN_H = 120; // talking points under the video: at least this tall
 
 const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => (
@@ -64,18 +64,30 @@ export function createPresenter(app) {
   }
 
   // Pin the player over the stage, as large as fits at 16:9.
+  // With talking points on, try them beside the video and under it, and use
+  // whichever leaves the bigger picture. A TV keeps them beside; an iPad on its
+  // side usually gets a strip underneath; anything upright stacks.
   function layout() {
     if (!active) return;
-    // Side by side: give the video exactly the width its height allows, and the
-    // talking points everything else (between 28% and half the screen).
     const main = $('#pv-main');
-    if (prefs.notes && !portraitQuery.matches) {
+    main.classList.remove('side', 'bottom', 'strip');
+    main.style.removeProperty('--pv-notes-w');
+    main.style.removeProperty('--pv-notes-h');
+    if (prefs.notes) {
       const m = main.getBoundingClientRect();
-      const min = Math.min(440, Math.max(260, m.width * 0.28));
-      const notes = Math.min(m.width * 0.5, Math.max(min, m.width - m.height * ASPECT));
-      main.style.setProperty('--pv-notes-w', `${Math.round(notes)}px`);
-    } else {
-      main.style.removeProperty('--pv-notes-w');
+      const fit = (w, h) => (w / h > ASPECT ? h * ASPECT * h : w * (w / ASPECT));
+      const sideW = Math.min(m.width * 0.5, Math.max(NOTES_MIN_W, Math.min(400, m.width * 0.22), m.width - m.height * ASPECT));
+      const bottomH = Math.min(m.height * 0.6, Math.max(NOTES_MIN_H, m.height - m.width / ASPECT));
+      const side = fit(m.width - sideW, m.height);
+      const bottom = fit(m.width, m.height - bottomH);
+      if (side > bottom) {
+        main.classList.add('side');
+        main.style.setProperty('--pv-notes-w', `${Math.round(sideW)}px`);
+      } else {
+        main.classList.add('bottom');
+        main.style.setProperty('--pv-notes-h', `${Math.round(bottomH)}px`);
+        main.classList.toggle('strip', bottomH < 220 && m.width >= 640);
+      }
     }
     const r = stage.getBoundingClientRect();
     let w = r.width;
@@ -118,8 +130,10 @@ export function createPresenter(app) {
       ? `<span class="pv-cat cat-${esc(clip.category)}"><span class="dot"></span>${esc(categoryLabel(clip.category))}</span>`
       : '';
     $('#pv-notes').innerHTML = `
-      <div class="pv-meta">${cat}<span class="pv-len">${clip.end - clip.start}s</span></div>
-      ${players ? `<div class="pv-players">${players}</div>` : ''}
+      <div class="pv-facts">
+        <div class="pv-meta">${cat}<span class="pv-len">${clip.end - clip.start}s</span></div>
+        ${players ? `<div class="pv-players">${players}</div>` : ''}
+      </div>
       ${clip.notes ? `<p class="pv-text">${esc(clip.notes)}</p>` : ''}`;
     layout();
     requestAnimationFrame(layout);

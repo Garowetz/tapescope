@@ -1,8 +1,8 @@
 // The game object: one video, its clips and a copy of the roster.
 // Every storage adapter reads and writes this shape and nothing else.
 
-import { CATEGORIES, clampWindow } from './clips.js?v=7';
-import { normalizeRoster } from './roster.js?v=7';
+import { CATEGORIES, clampWindow } from './clips.js?v=8';
+import { normalizeRoster } from './roster.js?v=8';
 
 export const SCHEMA_VERSION = 1;
 
@@ -53,6 +53,8 @@ export function normalizeGame(raw) {
       notes: typeof c.notes === 'string' ? c.notes : '',
       drawings: Array.isArray(c.drawings) ? c.drawings : [],
     });
+    // Who clipped it (added later; older files simply have none).
+    if (typeof c.by === 'string' && c.by.trim()) game.clips[game.clips.length - 1].by = c.by.trim().slice(0, 40);
   });
   return game;
 }

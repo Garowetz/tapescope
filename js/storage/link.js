@@ -3,7 +3,7 @@
 // The roster is left out unless includeNames is on, so a forwarded link carries
 // jersey numbers only.
 
-import { normalizeGame } from '../game.js?v=7';
+import { normalizeGame } from '../game.js?v=8';
 
 const PREFIX = '#g=';
 export const LONG_LINK = 2000; // past this, some texting and email apps cut links off
@@ -18,6 +18,7 @@ function compact(game, includeNames) {
     if (c.players.length) clip.players = c.players;
     if (c.notes) clip.notes = c.notes;
     if (c.drawings.length) clip.drawings = c.drawings;
+    if (c.by) clip.by = c.by;
     return clip;
   });
   return out;

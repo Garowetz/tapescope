@@ -29,12 +29,22 @@ window for new clips.
 
 Other keys: **Space** plays and pauses, **Left / Right arrows** jump 5 seconds.
 
+Under the video: play, back and forward 5 seconds, **mute** (an iPad's YouTube
+player has no volume slider, so use this or the iPad's buttons), and the speed:
+**¼× ½× 1× 1½× 2×**. Speed up through the quiet parts; Clip it works the same at
+any speed. On a phone the speeds sit behind one button that shows the current speed.
+
 If you peek at a clip mid-game, the Review tab shows **Back to where I was** so
 you can pick the game up again.
 
 ### 2. Clips (afterward)
 
-Switch to the **Clips** tab, or tap any clip in the list or on the coloured game strip.
+There are two versions of this tab for now, **Clips A** and **Clips B**, to try
+two ways of trimming. Both edit the same clips; use whichever feels better.
+
+Switch to a Clips tab, or tap any clip in the list or on the coloured game strip.
+
+**Clips A:**
 
 - **Prev / Replay / Next** (keys **P / R / N**) step through the clips. Each one
   plays from its start to its end and then pauses.
@@ -49,13 +59,25 @@ Switch to the **Clips** tab, or tap any clip in the list or on the coloured game
 - The **three dots** beside the clip number hold Move earlier, Move later,
   **Reset to default window** and Delete. A deleted clip can be undone for a few
   seconds.
-- **¼× / ½× / 1×** change the playback speed.
+
+**Clips B** works like a video editor. The clip is the blue stretch on a timeline
+that also shows some video either side of it.
+
+- The start and end times sit on the timeline, above the clip's two handles.
+  Tap a time to type a new one.
+- Drag a handle to move that end; the video shows the frame under your finger.
+- Tap anywhere else on the timeline to watch from there, even past the end.
+- Start buttons are on the left (**-5s +5s -1s +1s** and **Set start here**), end
+  buttons on the right. Left-hand buttons move earlier, right-hand ones later.
+- Title, talking points, category and players are the same as Clips A.
 
 ### 3. Present (to the team)
 
 Connect the laptop or iPad to the TV and press **Present** at the top. The
 screen goes full size and shows one clip at a time: the video, the clip's number
-and title, and its category, players and talking points beside it.
+and title, and its category, players and talking points. The talking points go
+beside the video or in a strip under it, whichever leaves the bigger picture (a TV
+usually gets them beside, an iPad under).
 
 - **Prev / Replay / Next** step through the clips. Each clip plays from its start
   to its end, then pauses so you can talk about it.
@@ -78,8 +100,9 @@ see?" before explaining, and end on a positive clip.
 
 ## Settings
 
-**Settings** in the menu has **Appearance** (Dark, Light, or System to follow
-your device; Dark is the default) and the clip length for new clips.
+**Settings** in the menu has **Your name** (shown on the clips you make),
+**Appearance** (Dark, Light, or System to follow your device; Dark is the default)
+and the clip length for new clips.
 
 ## Saving and sharing
 
@@ -88,6 +111,10 @@ your device; Dark is the default) and the clip length for new clips.
 - **Save game file** (in the menu) downloads a game file (`something.tapescope.json`). This is the
   reliable copy. Keep it in the coaches' shared folder.
 - **Open game file** loads a game file back in, on any device.
+- **Add clips from another coach** merges another coach's game file for the same
+  video into yours. Their clips go after yours, with their name on them (if they
+  set it in Settings). Clips you both already have are skipped, so merging the
+  same file twice does nothing. **Undo** on the message takes it back.
 - **Share link** makes one link that carries the whole game. By default it leaves
   the roster out and shows jersey numbers only. Tick **Include player names** only
   when sending to coaches. Very long links can get cut off by some texting and
