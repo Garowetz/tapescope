@@ -15,7 +15,7 @@
       document.documentElement.dataset.theme = ['dark', 'light', 'system'].indexOf(t) >= 0 ? t : 'dark';
     } catch (e) { document.documentElement.dataset.theme = 'dark'; }
   </script>
-  <link rel="stylesheet" href="css/styles.css?v=14">
+  <link rel="stylesheet" href="css/styles.css?v=15">
 </head>
 <body>
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -61,6 +61,7 @@
       <svg class="logo" aria-hidden="true"><use href="#i-logo"/></svg>
       <span class="wordmark">Tape Scope</span>
     </div>
+    <button type="button" class="team-chip" id="btn-team" hidden aria-label="Team home"><svg class="i" aria-hidden="true"><use href="#i-users"/></svg><span id="team-chip-name"></span></button>
     <label class="title-wrap" id="title-wrap" hidden><input id="game-title" class="title-input" type="text" placeholder="Name this game" aria-label="Game title" autocomplete="off"><svg class="i" aria-hidden="true"><use href="#i-pencil"/></svg></label>
     <span class="bar-space"></span>
     <button type="button" class="btn soft" id="btn-present" aria-label="Present" hidden>
@@ -86,7 +87,7 @@
           <button type="submit" class="btn primary">Start clipping</button>
         </form>
         <button type="button" class="btn ghost outline" data-open-game><svg class="i" aria-hidden="true"><use href="#i-folder"/></svg>Open a saved game</button>
-        <button type="button" class="btn soft" data-team-games hidden><svg class="i" aria-hidden="true"><use href="#i-folder"/></svg><span id="welcome-team">Team games</span></button>
+        <button type="button" class="btn soft" data-team-games hidden><svg class="i" aria-hidden="true"><use href="#i-folder"/></svg><span id="welcome-team">Team home</span></button>
         <ol class="steps">
           <li><span class="step-n">1</span><div><strong>Review</strong><p>Watch the game once. Press Clip it right after something happens.</p></div></li>
           <li><span class="step-n">2</span><div><strong>Clips</strong><p>Tighten each clip, tag the players and add your talking points.</p></div></li>
@@ -144,7 +145,7 @@
             <div class="clips-head">
               <h2 id="clips-h">Clips</h2><span id="clips-sum" class="clips-sum"></span>
               <span class="bar-space"></span>
-              <button type="button" class="btn ghost sort-btn" id="btn-sort" aria-haspopup="dialog" hidden><svg class="i" aria-hidden="true"><use href="#i-sort"/></svg>Sort</button>
+              <button type="button" class="btn ghost sort-btn" id="btn-all-clips" hidden><svg class="i" aria-hidden="true"><use href="#i-grid"/></svg>All clips</button>
             </div>
             <div id="tape" class="tape" hidden></div>
             <ol id="clip-list" class="clip-list"></ol>
@@ -162,6 +163,58 @@
     </div>
   </main>
 
+  <!-- Team home page: the team's games -->
+  <section id="home-page" class="page home-page" hidden aria-labelledby="home-h">
+    <header class="page-bar">
+      <button type="button" class="icon-btn" data-home="close" id="home-back" aria-label="Back to the game" hidden><svg class="i" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
+      <svg class="logo" aria-hidden="true"><use href="#i-logo"/></svg>
+      <h1 id="home-h">Team</h1>
+      <span class="bar-space"></span>
+      <button type="button" class="btn soft" data-home="roster"><svg class="i" aria-hidden="true"><use href="#i-users"/></svg>Roster</button>
+      <button type="button" class="icon-btn" data-home="menu" aria-label="Menu" aria-haspopup="dialog"><svg class="i" aria-hidden="true"><use href="#i-dots"/></svg></button>
+    </header>
+    <div class="page-body">
+      <p class="page-intro" id="home-intro" role="status"></p>
+      <ul class="game-cards" id="game-cards"></ul>
+    </div>
+  </section>
+
+  <!-- All the clips in the game, as cards, with filters -->
+  <section id="clips-page" class="page clips-page" hidden aria-labelledby="cp-h">
+    <header class="page-bar">
+      <button type="button" class="icon-btn" data-cp="close" aria-label="Back"><svg class="i" aria-hidden="true"><use href="#i-chev-l"/></svg></button>
+      <h1 id="cp-h">Clips</h1>
+      <span class="cp-game" id="cp-game"></span>
+      <span class="bar-space"></span>
+      <button type="button" class="btn primary" data-cp="present"><svg class="i" aria-hidden="true"><use href="#i-tv"/></svg>Present<span class="btn-label">&nbsp;these</span></button>
+    </header>
+    <div class="page-body">
+      <div class="cp-tools">
+        <div class="cats" id="cp-cats" role="group" aria-label="Show categories">
+          <button type="button" class="cat" data-fcat="good" aria-pressed="false"><span class="dot"></span>Good</button>
+          <button type="button" class="cat" data-fcat="needs-work" aria-pressed="false"><span class="dot"></span>Fix</button>
+          <button type="button" class="cat" data-fcat="teaching" aria-pressed="false"><span class="dot"></span>Teach</button>
+          <button type="button" class="cat" data-fcat="none" aria-pressed="false"><span class="dot"></span>Untagged</button>
+        </div>
+        <label class="cp-pick"><span>Player</span><select id="cp-player"></select></label>
+        <label class="cp-pick"><span>Position</span><select id="cp-pos">
+          <option value="">All</option><option value="G">Goalies</option><option value="D">Defence</option><option value="F">Forwards</option>
+        </select></label>
+        <label class="cp-pick"><span>Coach</span><select id="cp-coach"></select></label>
+        <label class="cp-pick"><span>Sort</span><select id="cp-sort">
+          <option value="list">List order</option><option value="time">Game time</option><option value="category">Category</option><option value="player">Player number</option>
+        </select></label>
+      </div>
+      <div class="cp-status">
+        <span id="cp-count"></span>
+        <span class="bar-space"></span>
+        <button type="button" class="btn ghost" id="cp-clear" hidden>Clear filters</button>
+        <button type="button" class="btn soft" id="cp-apply" hidden></button>
+      </div>
+      <ol class="clip-cards" id="clip-cards"></ol>
+    </div>
+  </section>
+
   <!-- Team roster page -->
   <section id="roster-page" class="page" hidden aria-labelledby="roster-h">
     <header class="page-bar">
@@ -173,7 +226,7 @@
       <button type="button" class="btn primary" data-roster="close">Done</button>
     </header>
     <div class="page-body">
-      <p class="page-intro">Type each player's jersey number and name. Leave a spot empty if you don't have that player. <strong>Saved in this browser as you type.</strong> Use <strong>Export</strong> to keep a copy you can import on another device or browser.</p>
+      <p class="page-intro">Type each player's name, and their jersey number if you know it (you can add numbers later). Leave a spot empty if you don't have that player. <strong>Saved in this browser as you type.</strong> Use <strong>Export</strong> to keep a copy you can import on another device or browser.</p>
       <div class="r-actions">
         <button type="button" class="btn" data-roster="import"><svg class="i" aria-hidden="true"><use href="#i-folder"/></svg>Import file</button>
         <button type="button" class="btn" data-roster="export"><svg class="i" aria-hidden="true"><use href="#i-download"/></svg>Export file</button>
@@ -239,7 +292,7 @@
 
   <dialog id="dlg-menu" class="dialog menu">
     <div class="menu-list">
-      <button type="button" class="menu-item" id="btn-team-games" data-team hidden><svg class="i" aria-hidden="true"><use href="#i-folder"/></svg><span><strong>Team games</strong><small id="team-status"></small></span></button>
+      <button type="button" class="menu-item" id="btn-team-games" data-team hidden><svg class="i" aria-hidden="true"><use href="#i-folder"/></svg><span><strong>Team home</strong><small id="team-status"></small></span></button>
       <hr data-team hidden>
       <button type="button" class="menu-item" id="btn-video" data-needs-video><svg class="i" aria-hidden="true"><use href="#i-link"/></svg><span><strong>Change video</strong></span></button>
       <button type="button" class="menu-item" id="btn-roster"><svg class="i" aria-hidden="true"><use href="#i-users"/></svg><span><strong>Team roster</strong><small id="roster-status"></small></span></button>
@@ -277,14 +330,37 @@
     </form>
   </dialog>
 
-  <dialog id="dlg-games" class="dialog">
-    <div class="stack">
-      <h2 id="games-title">Team games</h2>
-      <ul class="games-list" id="games-list"></ul>
-      <div class="dialog-actions column">
-        <button type="button" class="btn primary" id="games-new"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg>New game</button>
-        <button type="button" class="btn" id="games-local" hidden></button>
+  <dialog id="dlg-add-game" class="dialog">
+    <form id="add-game-form" class="stack">
+      <h2>Add a game</h2>
+      <label class="field"><span>Game name</span>
+        <input type="text" id="ag-title" maxlength="80" placeholder="e.g. vs Hawks, Nov 14" autocomplete="off" required>
+      </label>
+      <label class="field"><span>YouTube link</span>
+        <input type="url" id="ag-url" inputmode="url" placeholder="Paste a YouTube link" autocomplete="off" required>
+      </label>
+      <p class="form-err" id="ag-err" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn ghost" data-close>Cancel</button>
+        <button type="submit" class="btn primary">Add game</button>
       </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-home-menu" class="dialog menu">
+    <div class="menu-list">
+      <button type="button" class="menu-item" id="hm-settings"><svg class="i" aria-hidden="true"><use href="#i-sliders"/></svg><span><strong>Settings</strong></span></button>
+      <button type="button" class="menu-item" id="hm-local" hidden><svg class="i" aria-hidden="true"><use href="#i-folder"/></svg><span><strong id="hm-local-title"></strong><small>Add the game saved in this browser to the team</small></span></button>
+      <button type="button" class="menu-item" id="hm-open"><svg class="i" aria-hidden="true"><use href="#i-folder"/></svg><span><strong>Open game file</strong><small>Adds it to the team</small></span></button>
+      <hr>
+      <button type="button" class="menu-item" id="hm-out"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg><span><strong>Sign out of the team</strong><small>This device only</small></span></button>
+    </div>
+  </dialog>
+
+  <dialog id="dlg-game-menu" class="dialog menu clip-menu">
+    <div class="menu-list">
+      <p class="menu-note" id="gm-title"></p>
+      <button type="button" class="menu-item danger" id="gm-delete"><svg class="i" aria-hidden="true"><use href="#i-trash"/></svg><span><strong>Delete game</strong><small>For every coach on the team</small></span></button>
     </div>
   </dialog>
 
@@ -348,15 +424,6 @@
     </form>
   </dialog>
 
-  <dialog id="dlg-sort" class="dialog menu clip-menu" aria-label="Sort the clips">
-    <div class="menu-list">
-      <p class="menu-note">Puts the clips in this order everywhere, presenting included. You can undo it.</p>
-      <button type="button" class="menu-item" data-sort="time"><svg class="i" aria-hidden="true"><use href="#i-play"/></svg><span><strong>Game time</strong><small>When each play happened</small></span></button>
-      <button type="button" class="menu-item" data-sort="category"><svg class="i" aria-hidden="true"><use href="#i-grid"/></svg><span><strong>Category</strong><small>Good, then Fix, then Teach, then untagged</small></span></button>
-      <button type="button" class="menu-item" data-sort="player"><svg class="i" aria-hidden="true"><use href="#i-users"/></svg><span><strong>Player number</strong><small>By the lowest number on each clip; no players last</small></span></button>
-    </div>
-  </dialog>
-
   <dialog id="dlg-rate" class="dialog">
     <div class="stack">
       <h2>Playback speed</h2>
@@ -391,7 +458,7 @@
   <input type="file" id="file-roster" accept=".csv,.json,text/csv,application/json" hidden>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="js/vendor/lz-string.min.js?v=14"></script>
-  <script type="module" src="js/app.js?v=14"></script>
+  <script src="js/vendor/lz-string.min.js?v=15"></script>
+  <script type="module" src="js/app.js?v=15"></script>
 </body>
 </html>

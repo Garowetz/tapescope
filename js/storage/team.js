@@ -9,13 +9,14 @@
 //   signIn(teamId, password, keep)     keep = stay signed in on this device
 //   signOut()
 //   whoAmI()                           -> { uid, teamId, google, name } or null
-//   listGames(teamId)                  -> [{ id, title, updatedAt, clipCount }]
+//   listGames(teamId)                  -> [{ id, title, source, updatedAt, clipCount, coaches, tally }]
+//                                      (coaches and tally may be null on older games)
 //   createGame(teamId, game)           -> gameId at once (saves in the background)
 //   watchGame(teamId, gameId, onChange(game, { pending }), onError) -> stop()  (not async)
 //   saveChanges(teamId, gameId, { info, clips, deleted })   one atomic edit; returns
 //                                      before the server confirms (works offline)
 //   onWriteError(fn)                   (not async) where background write failures go
-//   saveGameInfo(teamId, gameId, { title, source, roster, order })
+//   saveGameInfo(teamId, gameId, { title, source, roster, order, coaches, tally })
 //   saveClip(teamId, gameId, clip)
 //   deleteClip(teamId, gameId, clipId)
 //   deleteGame(teamId, gameId)
@@ -26,7 +27,7 @@
 let backend;
 
 export async function teamStore() {
-  if (!backend) backend = (await import('./firebase.js?v=14')).firebaseStore;
+  if (!backend) backend = (await import('./firebase.js?v=15')).firebaseStore;
   return backend;
 }
 

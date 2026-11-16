@@ -1,5 +1,8 @@
-// Team roster: the lineup layout, file parsing and export. Clips store jersey
-// numbers only; names are looked up here.
+// Team roster: the lineup layout, file parsing and export.
+// A player has an id that never changes, a jersey number (or null when the coach
+// doesn't know it) and a name. A clip tags a player by jersey number when they have
+// one (older files only have these), otherwise by the player's id. playerFor() looks
+// either up, so a player who gets a number later still matches their old tags.
 
 // The roster page's layout: 2 goalies, 3 defence pairs, 3 forward lines (17 spots).
 export const SLOTS = [
@@ -50,7 +53,7 @@ export function placeRoster(roster) {
 
 const csvCell = (v) => (/[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
 export function rosterToCsv(roster) {
-  const lines = ['number,name,position', ...roster.map((p) => [p.number, p.name, p.position].map(csvCell).join(','))];
+  const lines = ['number,name,position', ...roster.map((p) => [p.number ?? '', p.name, p.position].map(csvCell).join(','))];
   return lines.join('\r\n') + '\r\n';
 }
 
@@ -63,22 +66,41 @@ export function saveTeam(roster) {
   try { localStorage.setItem(TEAM_KEY, JSON.stringify(roster)); } catch { /* private window: still works this visit */ }
 }
 
+const newPlayerId = () => 'p' + Math.random().toString(36).slice(2, 9);
+
 // Keeps the order given (the lineup order). A repeated jersey number keeps its
-// first place and takes the later details.
+// first place and takes the later details. A player needs a number or a name.
 export function normalizeRoster(raw) {
   if (!Array.isArray(raw)) return [];
+  const out = [];
   const byNumber = new Map();
+  const ids = new Set();
   for (const p of raw) {
     if (!p || typeof p !== 'object') continue;
-    const number = parseInt(p.number, 10);
-    if (!Number.isFinite(number)) continue;
-    byNumber.set(number, {
-      number,
-      name: p.name == null ? '' : String(p.name).trim(),
-      position: p.position == null ? '' : normalizePosition(p.position),
-    });
+    const n = parseInt(p.number, 10);
+    const number = Number.isFinite(n) && n >= 0 ? n : null;
+    const name = p.name == null ? '' : String(p.name).trim();
+    if (number == null && !name) continue;
+    let id = typeof p.id === 'string' && /^p\w{2,20}$/.test(p.id) ? p.id : newPlayerId();
+    while (ids.has(id)) id = newPlayerId();
+    const player = { id, number, name, position: p.position == null ? '' : normalizePosition(p.position) };
+    if (number != null && byNumber.has(number)) {
+      Object.assign(byNumber.get(number), { name: player.name, position: player.position });
+      continue;
+    }
+    ids.add(id);
+    if (number != null) byNumber.set(number, player);
+    out.push(player);
   }
-  return [...byNumber.values()];
+  return out;
+}
+
+// What a clip stores to tag this player.
+export const playerTag = (p) => (p.number != null ? p.number : p.id);
+export const isPlayerTag = (t) => (Number.isInteger(t) && t >= 0) || (typeof t === 'string' && /^p\w{2,20}$/.test(t));
+
+export function playerFor(roster, tag) {
+  return roster.find((p) => (typeof tag === 'string' ? p.id === tag : p.number === tag)) || null;
 }
 
 function splitCsvLine(line) {
@@ -104,7 +126,7 @@ function parseCsv(text) {
   if (!lines.length) return [];
   let cols = { number: 0, name: 1, position: 2 };
   const first = splitCsvLine(lines[0]).map((c) => c.toLowerCase());
-  const hasHeader = !/^\d+$/.test(first[0] || '');
+  const hasHeader = !/^\d*$/.test(first[0] || '') || ['number', '#', 'no', 'name'].includes(first[0]);
   if (hasHeader) {
     const find = (names, fallback) => {
       const i = first.findIndex((c) => names.includes(c));
@@ -138,7 +160,26 @@ export function parseRosterText(text, filename = '') {
   return roster;
 }
 
-export function playerLabel(roster, number) {
-  const p = roster.find((x) => x.number === number);
-  return p && p.name ? `#${number} ${p.name}` : `#${number}`;
+// "#12 Sam", "#12", or "Sam" for a player without a number.
+export function playerLabel(roster, tag) {
+  const p = playerFor(roster, tag);
+  if (!p) return typeof tag === 'number' ? `#${tag}` : 'Player';
+  if (p.number == null) return p.name || 'Player';
+  return p.name ? `#${p.number} ${p.name}` : `#${p.number}`;
+}
+
+// Without names (a TV, a link sent on): the number, or "Player" when there is none.
+export function playerNumberLabel(roster, tag) {
+  const p = playerFor(roster, tag);
+  if (p && p.number != null) return `#${p.number}`;
+  return typeof tag === 'number' ? `#${tag}` : 'Player';
+}
+
+// G, D or F for filtering, or '' when unknown.
+export function positionGroup(position) {
+  const pos = normalizePosition(position);
+  if (pos === 'G') return 'G';
+  if (['LD', 'RD', 'D'].includes(pos)) return 'D';
+  if (['LW', 'C', 'RW', 'F'].includes(pos)) return 'F';
+  return '';
 }

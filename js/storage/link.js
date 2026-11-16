@@ -3,7 +3,7 @@
 // The roster is left out unless includeNames is on, so a forwarded link carries
 // jersey numbers only.
 
-import { normalizeGame } from '../game.js?v=14';
+import { normalizeGame } from '../game.js?v=15';
 
 const PREFIX = '#g=';
 export const LONG_LINK = 2000; // past this, some texting and email apps cut links off
@@ -11,6 +11,10 @@ export const LONG_LINK = 2000; // past this, some texting and email apps cut lin
 function compact(game, includeNames) {
   const out = { schemaVersion: game.schemaVersion, title: game.title, source: game.source };
   if (includeNames && game.roster.length) out.roster = game.roster;
+  // Without names, numbers only, so players tagged by id still show their number.
+  else if (game.roster.some((p) => p.number != null)) {
+    out.roster = game.roster.filter((p) => p.number != null).map((p) => ({ id: p.id, number: p.number }));
+  }
   out.clips = game.clips.map((c) => {
     const clip = { id: c.id, mark: c.mark, start: c.start, end: c.end };
     if (c.title) clip.title = c.title;

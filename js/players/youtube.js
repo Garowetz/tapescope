@@ -44,6 +44,11 @@ export function parseYouTubeUrl(input) {
   return { id, t: parseStartParam(raw) };
 }
 
+// A still from the video, for game cards.
+export function thumbnailUrl(id) {
+  return `https://i.ytimg.com/vi/${encodeURIComponent(id)}/mqdefault.jpg`;
+}
+
 // "123", "123s", "2m3s", "1h2m3s"
 function parseStartParam(raw) {
   if (!raw) return 0;

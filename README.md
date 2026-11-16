@@ -38,9 +38,13 @@ If you peek at a clip mid-game, the Review tab shows **Back to where I was** so
 you can pick the game up again.
 
 Your clips are listed under **Clip it**, with a coloured strip of the whole game
-(under the video on an iPad held sideways or a computer). **Sort** puts them in
-order by **game time**, **category** (Good, Fix, Teach) or **player number**. The
-new order is used everywhere, presenting included, and **Undo** puts it back.
+(under the video on an iPad held sideways or a computer).
+
+**All clips** opens every clip in the game as a card. Filter by category, player,
+position or coach, and sort by game time, category or player number. Tap a card to
+work on that clip. **Present these** presents just the clips showing, in that
+order. **Use this order** makes a sort the game's order everywhere (**Undo** puts it
+back), and the arrows on each card move it earlier or later in the list.
 
 ### 2. Clips (afterward)
 
@@ -100,8 +104,13 @@ and the clip length for new clips.
 If the site's owner set up your team, you'll get a **team link** and a **team
 password**. Open the link, type the password once, and add your name. From then on:
 
-- The **Team games** list (in the menu, or on the start screen) shows every game
-  the team has, newest first. Tap one to open it, or start a **New game**.
+- The **team home** shows every game the team has as a card, newest first, with
+  its clip count, the Good / Fix / Teach split and who clipped it. **Review** or
+  **Present** opens a game; the last card, **Add game**, asks for a name and the
+  YouTube link. **Roster** is at the top. The team's name in the top bar comes
+  back here from any game.
+- The address shows the team and the game you're in, so reloading or bookmarking
+  it comes back to the same game.
 - Everything you do saves for the whole team as you go. When another coach adds or
   changes a clip, you see it within a second or two. Two coaches can work on the
   same game at once; if you both edit the same clip, the last change wins.
@@ -110,7 +119,7 @@ password**. Open the link, type the password once, and add your name. From then 
 - The plain site address remembers your team on that device. **Sign out of the
   team** in the menu forgets it (do that on a shared computer).
 - The game you had in this browser before signing in is still there after you sign
-  out, and the Team games list offers to add it to the team.
+  out, and the team home's menu offers to add it to the team.
 
 ## Saving and sharing
 
@@ -132,14 +141,14 @@ password**. Open the link, type the password once, and add your name. From then 
 
 Open the **menu** and choose **Team roster**. The page has spots for a full team:
 2 goalies, 3 defence pairs (LD, RD) and 3 forward lines (LW, C, RW), plus
-**Extra players** for spares and call-ups. Type a jersey number and name in each
-spot you have; leave the rest empty.
+**Extra players** for spares and call-ups. Type each player's name, and their
+jersey number if you know it; leave the rest empty.
 
 - It saves as you type, in this browser, and every new game starts with it.
 - **Export** downloads it as `team-roster.csv`. **Import** loads a file back, on
   any device or browser.
-- A player needs a jersey number to be tagged on clips. The page warns you about a
-  missing or repeated number.
+- A player without a number can still be tagged on clips, by name. Add the
+  number later and their clips keep the tag. The page warns about a repeated number.
 
 The file is a plain spreadsheet you can also edit in Google Sheets or Excel:
 
@@ -196,6 +205,8 @@ python -m http.server 8123
 | `js/game.js` | The game object and `schemaVersion` upgrades |
 | `js/roster.js` | Roster layout (lineup spots), file parsing and export |
 | `js/team.js` | The team roster page |
+| `js/clips-page.js` | All clips as cards, with filters, sorting and Present these |
+| `js/team-home.js` | The team home: the team's games as cards, and Add game |
 | `js/players/youtube.js` | YouTube player adapter. A local-file adapter exposes the same methods |
 | `js/storage/local.js`, `file.js`, `link.js` | Storage adapters: autosave, game file, share link |
 | `js/storage/team.js`, `firebase.js` | Team games: the interface the app uses, and its Firebase backend (the only file that imports Firebase) |

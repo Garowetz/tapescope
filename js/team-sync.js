@@ -11,13 +11,14 @@
 //   detach()       stop following (the next save with a video makes a new team game)
 //   gameId         the team game being followed, or null
 
-import { normalizeGame } from './game.js?v=14';
+import { normalizeGame, gameSummary } from './game.js?v=15';
 
 const infoOf = (game) => JSON.stringify({
   title: game.title,
   source: game.source,
   roster: game.roster,
   order: game.clips.map((c) => c.id),
+  ...gameSummary(game), // coaches and tally, for the team's games list
 });
 
 function snapOf(game) {

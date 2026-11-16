@@ -2,7 +2,7 @@
 // lines) plus extra players, with import and export of the team file.
 // Every change is saved straight away through app.setRoster.
 
-import { SLOTS, POSITIONS, placeRoster, normalizeRoster, rosterToCsv } from './roster.js?v=14';
+import { SLOTS, POSITIONS, placeRoster, normalizeRoster, rosterToCsv } from './roster.js?v=15';
 
 const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => (
@@ -18,21 +18,21 @@ export function createRosterPage(app) {
   let extraCount = 0;
 
   const row = (slot, p) => `
-    <div class="r-row" data-slot="${slot.id}">
+    <div class="r-row" data-slot="${slot.id}"${p ? ` data-pid="${esc(p.id)}"` : ''}>
       <span class="r-pos" title="${POS_NAMES[slot.pos]}">${slot.pos}</span>
-      <input type="text" class="r-num" inputmode="numeric" maxlength="3" placeholder="#" value="${p ? p.number : ''}"
+      <input type="text" class="r-num" inputmode="numeric" maxlength="3" placeholder="#" value="${p && p.number != null ? p.number : ''}"
         aria-label="${slot.set} ${POS_NAMES[slot.pos]} jersey number">
       <input type="text" class="r-name" placeholder="Name" autocomplete="off" value="${p ? esc(p.name) : ''}"
         aria-label="${slot.set} ${POS_NAMES[slot.pos]} name">
     </div>`;
 
-  const extraRow = (p = { number: '', name: '', position: 'F' }) => `
-    <div class="r-row extra" data-extra="${extraCount++}">
+  const extraRow = (p = { number: null, name: '', position: 'F' }) => `
+    <div class="r-row extra" data-extra="${extraCount++}"${p.id ? ` data-pid="${esc(p.id)}"` : ''}>
       <select class="r-posel" aria-label="Position">
         ${POSITIONS.map((x) => `<option${x === p.position ? ' selected' : ''}>${x}</option>`).join('')}
         ${POSITIONS.includes(p.position) || !p.position ? '' : `<option selected>${esc(p.position)}</option>`}
       </select>
-      <input type="text" class="r-num" inputmode="numeric" maxlength="3" placeholder="#" value="${p.number}" aria-label="Extra player jersey number">
+      <input type="text" class="r-num" inputmode="numeric" maxlength="3" placeholder="#" value="${p.number != null ? p.number : ''}" aria-label="Extra player jersey number">
       <input type="text" class="r-name" placeholder="Name" autocomplete="off" value="${esc(p.name)}" aria-label="Extra player name">
       <button type="button" class="icon-btn" data-remove aria-label="Remove this player"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button>
     </div>`;
@@ -59,43 +59,38 @@ export function createRosterPage(app) {
     check();
   }
 
+  // Each row keeps its player's id, so tags on clips stay with the player
+  // when their number or name is edited.
+  const pid = (el) => el.dataset.pid || (el.dataset.pid = 'p' + Math.random().toString(36).slice(2, 9));
+  const fromRow = (el, position) => ({
+    el, id: pid(el), number: el.querySelector('.r-num').value.trim(), name: el.querySelector('.r-name').value.trim(), position,
+  });
+
   // Reads the page back into a roster list, in lineup order.
   function read() {
-    const list = [];
-    for (const slot of SLOTS) {
-      const el = groups.querySelector(`[data-slot="${slot.id}"]`);
-      list.push({ el, number: el.querySelector('.r-num').value.trim(), name: el.querySelector('.r-name').value.trim(), position: slot.pos });
-    }
-    groups.querySelectorAll('[data-extra]').forEach((el) => {
-      list.push({ el, number: el.querySelector('.r-num').value.trim(), name: el.querySelector('.r-name').value.trim(), position: el.querySelector('.r-posel').value });
-    });
+    const list = SLOTS.map((slot) => fromRow(groups.querySelector(`[data-slot="${slot.id}"]`), slot.pos));
+    groups.querySelectorAll('[data-extra]').forEach((el) => list.push(fromRow(el, el.querySelector('.r-posel').value)));
     return list;
   }
 
-  // Flags a name with no number (it can't be tagged on a clip) and repeated numbers.
+  // Flags repeated numbers. A name without a number is fine: the player is
+  // tagged by name.
   function check() {
     const list = read();
     const seen = new Map();
     list.forEach((p) => { if (p.number) seen.set(p.number, (seen.get(p.number) || 0) + 1); });
-    let missing = 0;
     let dups = 0;
     list.forEach((p) => {
-      const isMissing = !p.number && !!p.name;
       const isDup = !!p.number && seen.get(p.number) > 1;
-      p.el.classList.toggle('missing', isMissing);
       p.el.classList.toggle('dup', isDup);
-      if (isMissing) missing++;
       if (isDup) dups++;
     });
-    const msgs = [];
-    if (missing) msgs.push(`${missing} player${missing === 1 ? ' needs' : 's need'} a jersey number to be tagged on clips.`);
-    if (dups) msgs.push('Two players share a jersey number. Only the first is kept.');
-    $('#roster-warn').textContent = msgs.join(' ');
+    $('#roster-warn').textContent = dups ? 'Two players share a jersey number. Only the first is kept.' : '';
     return list;
   }
 
   function save() {
-    const list = check().map(({ number, name, position }) => ({ number, name, position }));
+    const list = check().map(({ id, number, name, position }) => ({ id, number, name, position }));
     app.setRoster(normalizeRoster(list));
   }
 

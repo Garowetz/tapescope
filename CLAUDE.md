@@ -31,13 +31,17 @@ them to the team. Never call it "Film Room"; that was the working name.
   Barlow Condensed (self-hosted in `fonts/`) for headings, numbers and labels;
   system font for body text.
 - Tabs are **Review** (watch and clip, `data-tab="clip"`, with the clip list and
-  Sort under Clip it) and **Clips** (the trim timeline editor, `data-tab="trim"`,
+  All clips under Clip it) and **Clips** (the trim timeline editor, `data-tab="trim"`,
   rendered into `#tab-trim`, with a clip picker select). Clips A was dropped
   2026-11-15. On wide screens JS moves the game strip `#tape` under the video.
 - The team roster page (`js/team.js`) lays the roster out as 2 G, 3 D pairs, 3
   forward lines, plus extras (`SLOTS` in `js/roster.js`). The roster keeps lineup
   order (it is not sorted); sort by number only where it is displayed as a list.
   It is saved to the current game and to `tapescope.team` in localStorage.
+  Players have a fixed `id`; the jersey number is optional. Clips tag a player by
+  number when they have one, else by id (`playerTag` / `playerFor` in `roster.js`).
+- **All clips** (`js/clips-page.js`) is a full page of clip cards with filters; it
+  can present a subset (`state.presentIds`, read by the presenter's `getClips`).
 - Every dialog gets an X (added in `app.js`), and `showModal` is wrapped so the
   phone Back button closes the top pop-up, page or presentation instead of leaving.
 - The video must never scroll off screen at any size: sticky on phone and tablet,
@@ -70,8 +74,10 @@ the owner also wants real shared team accounts (Firebase was suggested) later.
 - `firestore.rules` holds the owner's Google uid as admin. Test with
   `npm --prefix tools/rules-test test` (needs Java 21 on PATH). Deploy with
   `firebase deploy --only firestore:rules`, or paste into the console Rules tab.
-- In the app: `?team=id` (or the remembered team) shows sign-in, then the Team games
-  list. `js/team-sync.js` diffs the game on screen against the team copy on each
+- In the app: `?team=id` (or the remembered team) shows sign-in, then the team home
+  (`js/team-home.js`, game cards). The URL is `?team=id&game=id` while a game is open
+  (`syncUrl` in `app.js`), so reload and bookmarks return to it. Game records also
+  carry `coaches` and `tally` (from `gameSummary` in `game.js`) for the cards. `js/team-sync.js` diffs the game on screen against the team copy on each
   `changed()` and saves one batch; other coaches' edits arrive via `applyRemote`.
   In a team, `saveLocal` skips the browser autosave so the local game survives.
 - Test team `test-team` exists; use made-up names only.
@@ -83,7 +89,7 @@ browser never mixes old and new modules after a deploy (GitHub Pages caches for
 10 minutes, and a mix breaks the app at load). Bump N everywhere on each release:
 
 ```bash
-grep -rl "?v=14" index.html admin.html js | xargs sed -i 's/?v=14/?v=15/g'
+grep -rl "?v=15" index.html admin.html js | xargs sed -i 's/?v=15/?v=16/g'
 ```
 
 ## Running and testing

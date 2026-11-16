@@ -1,8 +1,8 @@
 // The game object: one video, its clips and a copy of the roster.
 // Every storage adapter reads and writes this shape and nothing else.
 
-import { CATEGORIES, clampWindow } from './clips.js?v=14';
-import { normalizeRoster } from './roster.js?v=14';
+import { CATEGORIES, clampWindow } from './clips.js?v=15';
+import { normalizeRoster, isPlayerTag } from './roster.js?v=15';
 
 export const SCHEMA_VERSION = 1;
 
@@ -48,7 +48,8 @@ export function normalizeGame(raw) {
       title: typeof c.title === 'string' ? c.title : '',
       category: categoryIds.includes(c.category) ? c.category : '',
       players: Array.isArray(c.players)
-        ? [...new Set(c.players.map((n) => parseInt(n, 10)).filter(Number.isFinite))]
+        // Jersey numbers, or player ids for players without one.
+        ? [...new Set(c.players.map((t) => (typeof t === 'string' && !/^\d+$/.test(t) ? t : parseInt(t, 10))).filter(isPlayerTag))]
         : [],
       notes: typeof c.notes === 'string' ? c.notes : '',
       drawings: Array.isArray(c.drawings) ? c.drawings : [],
@@ -57,4 +58,12 @@ export function normalizeGame(raw) {
     if (typeof c.by === 'string' && c.by.trim()) game.clips[game.clips.length - 1].by = c.by.trim().slice(0, 40);
   });
   return game;
+}
+
+// For the team's games list: who clipped it and how many clips of each category.
+export function gameSummary(game) {
+  const coaches = [...new Set(game.clips.map((c) => c.by).filter(Boolean))].sort();
+  const tally = { good: 0, 'needs-work': 0, teaching: 0, none: 0 }; // Firestore keys can't be empty
+  for (const c of game.clips) tally[c.category && c.category in tally ? c.category : 'none'] += 1;
+  return { coaches, tally };
 }

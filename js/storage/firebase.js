@@ -3,13 +3,13 @@
 //   teamLinks/{teamId}                     { name, login }   readable by anyone with the id
 //   teams/{teamId}                         { name, uid, login, created }
 //   teams/{teamId}/roster/current          { players, updatedAt }
-//   teams/{teamId}/games/{gameId}          { title, source, roster, order, clipCount, schemaVersion, createdAt, updatedAt }
+//   teams/{teamId}/games/{gameId}          { title, source, roster, order, clipCount, coaches, tally, schemaVersion, createdAt, updatedAt }
 //   teams/{teamId}/games/{gameId}/clips/{clipId}   one clip, plus updatedAt
 // A team signs in with one shared login (email/password with a made-up address).
 // firestore.rules lets that login reach only its own team.
 
-import { firebaseConfig } from './firebase-config.js?v=14';
-import { normalizeGame, SCHEMA_VERSION } from '../game.js?v=14';
+import { firebaseConfig } from './firebase-config.js?v=15';
+import { normalizeGame, gameSummary, SCHEMA_VERSION } from '../game.js?v=15';
 
 const SDK = 'https://www.gstatic.com/firebasejs/13.1.0';
 const LOGIN_DOMAIN = 'teams.tapescope.invalid';
@@ -96,6 +96,9 @@ function assemble(info, clipDocs) {
   });
 }
 
+// Game record fields the app may change (order and clipCount are handled apart).
+const INFO_KEYS = ['title', 'source', 'roster', 'coaches', 'tally'];
+
 function clipRecord(clip) {
   const { id, ...rest } = clip;
   return plain(rest);
@@ -163,7 +166,13 @@ export const firebaseStore = {
     return guard(async () => {
       const snap = await F.getDocs(F.query(F.collection(db, 'teams', teamId, 'games'), F.orderBy('updatedAt', 'desc')));
       return snap.docs.map((d) => ({
-        id: d.id, title: d.data().title || '', updatedAt: ms(d.data().updatedAt), clipCount: d.data().clipCount || 0,
+        id: d.id,
+        title: d.data().title || '',
+        source: d.data().source || null,
+        updatedAt: ms(d.data().updatedAt),
+        clipCount: d.data().clipCount || 0,
+        coaches: d.data().coaches || null, // games saved before these were kept have none
+        tally: d.data().tally || null,
       }));
     });
   },
@@ -181,6 +190,7 @@ export const firebaseStore = {
         roster: plain(game.roster || []),
         order: clips.map((c) => c.id),
         clipCount: clips.length,
+        ...plain(gameSummary(game)),
         createdAt: now(),
         updatedAt: now(),
       });
@@ -242,13 +252,13 @@ export const firebaseStore = {
   async saveGameInfo(teamId, gameId, fields) {
     const { db, F } = await load();
     const data = { updatedAt: now() };
-    for (const k of ['title', 'source', 'roster']) if (k in fields) data[k] = plain(fields[k]);
+    for (const k of INFO_KEYS) if (k in fields) data[k] = plain(fields[k]);
     if (Array.isArray(fields.order)) { data.order = fields.order; data.clipCount = fields.order.length; }
     return guard(() => F.setDoc(F.doc(db, 'teams', teamId, 'games', gameId), data, { merge: true }));
   },
 
   // Everything one edit changed, in one batch so other listeners never see half
-  // of it. info: { title, source, roster, order } or null. Not awaited (see createGame).
+  // of it. info: { title, source, roster, order, coaches, tally } or null. Not awaited (see createGame).
   async saveChanges(teamId, gameId, { info = null, clips = [], deleted = [] }) {
     // No await once loaded, so a save started as the page closes is handed to
     // Firestore before the page goes.
@@ -257,7 +267,7 @@ export const firebaseStore = {
     const batch = F.writeBatch(db);
     const head = { updatedAt: now() };
     if (info) {
-      for (const k of ['title', 'source', 'roster']) if (k in info) head[k] = plain(info[k]);
+      for (const k of INFO_KEYS) if (k in info) head[k] = plain(info[k]);
       if (Array.isArray(info.order)) { head.order = info.order; head.clipCount = info.order.length; }
     }
     batch.set(ref, head, { merge: true });

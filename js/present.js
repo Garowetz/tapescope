@@ -4,8 +4,8 @@
 // YouTube iframe in the page reloads it. Instead the existing player is pinned
 // (position: fixed) over the empty #pv-stage area and put back on exit.
 
-import { categoryLabel } from './clips.js?v=14';
-import { playerLabel } from './roster.js?v=14';
+import { categoryLabel } from './clips.js?v=15';
+import { playerLabel, playerNumberLabel } from './roster.js?v=15';
 
 const PREFS_KEY = 'tapescope.present';
 const REEL_GAP_MS = 1500; // pause between clips in Play all
@@ -44,7 +44,7 @@ function exitFullscreen() {
   } catch { /* ignore */ }
 }
 
-// app: { player, getGame, getSelectedId, select(id, {play}), playClip(clip, from), stopClip(), toast, onExit }
+// app: { player, getGame, getClips (the clips to present, in order), getSelectedId, select(id, {play}), playClip(clip, from), stopClip(), toast, onExit }
 export function createPresenter(app) {
   const root = $('#present');
   const stage = $('#pv-stage');
@@ -56,7 +56,7 @@ export function createPresenter(app) {
   let wakeLock = null;
   let seeking = false;
 
-  const clips = () => app.getGame().clips;
+  const clips = () => app.getClips();
   const current = () => clips().find((c) => c.id === app.getSelectedId()) || clips()[0] || null;
 
   function savePrefs() {
@@ -124,7 +124,7 @@ export function createPresenter(app) {
     $('#pv-reel').checked = reel;
 
     const players = clip.players
-      .map((n) => `<span class="pv-player">${esc(prefs.names ? playerLabel(g.roster, n) : `#${n}`)}</span>`)
+      .map((n) => `<span class="pv-player">${esc(prefs.names ? playerLabel(g.roster, n) : playerNumberLabel(g.roster, n))}</span>`)
       .join('');
     const cat = clip.category
       ? `<span class="pv-cat cat-${esc(clip.category)}"><span class="dot"></span>${esc(categoryLabel(clip.category))}</span>`
